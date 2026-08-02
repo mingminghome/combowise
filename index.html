@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/icon-192.png" sizes="192x192" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <!-- PWA / install (short name keeps Android home-screen label centered) -->
+    <meta name="application-name" content="ComboWise" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ComboWise" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- Primary SEO (document title can be long; installed app uses short_name) -->
+    <title>ComboWise — Smart Basket Optimiser for KFC &amp; Popeyes UK</title>
+    <meta
+      name="description"
+      content="Free UK fast-food basket optimiser for KFC and Popeyes. Build what you want, find cheaper packs and combos, and only then check whether a named meal deal is worth it."
+    />
+    <meta
+      name="keywords"
+      content="basket optimiser, KFC UK deals, Popeyes UK, cheapest meal order, fast food price comparison UK, combo calculator"
+    />
+    <meta name="author" content="mingminghomework" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#0b0d11" />
+    <meta name="msapplication-TileColor" content="#0b0d11" />
+    <meta name="msapplication-TileImage" content="/icon-192.png" />
+    <link rel="canonical" href="https://combowise.pages.dev/" />
+
+    <!-- Apply theme before CSS paint so Light mode survives refresh -->
+    <script>
+      (function () {
+        try {
+          var key = 'ff_calc_theme';
+          var stored = localStorage.getItem(key);
+          var resolved =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.setAttribute('data-theme', resolved);
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', resolved === 'light' ? '#f5f6f8' : '#0b0d11');
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- Open Graph (Facebook, LinkedIn, iMessage, etc.) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ComboWise" />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:url" content="https://combowise.pages.dev/" />
+    <meta property="og:title" content="ComboWise — Smart Basket Optimiser for KFC &amp; Popeyes UK" />
+    <meta
+      property="og:description"
+      content="Optimise your KFC or Popeyes basket with live store prices. Find cheaper packs and combos before you order."
+    />
+    <meta property="og:image" content="https://combowise.pages.dev/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ComboWise — smart basket optimiser for UK fast food" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ComboWise — Smart Basket Optimiser for KFC &amp; Popeyes UK" />
+    <meta
+      name="twitter:description"
+      content="Optimise your KFC or Popeyes basket with live store prices. Find cheaper packs and combos before you order."
+    />
+    <meta name="twitter:image" content="https://combowise.pages.dev/og.png" />
+
+    <!-- Structured data (JSON-LD) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "ComboWise",
+        "url": "https://combowise.pages.dev/",
+        "description": "Free UK fast-food basket optimiser for KFC and Popeyes. Build what you want and find cheaper packs and combos, with an optional combo deal auditor.",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Any",
+        "browserRequirements": "Requires JavaScript",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "GBP"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "mingminghomework",
+          "url": "https://buymeacoffee.com/mingminghomework"
+        },
+        "inLanguage": "en-GB",
+        "areaServed": {
+          "@type": "Country",
+          "name": "United Kingdom"
+        }
+      }
+    </script>
+
+    <!-- GTM/GA injected at runtime from VITE_GTM_ID (src/core/analytics/gtm.ts) -->
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

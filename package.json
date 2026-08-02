@@ -1,0 +1,33 @@
+{
+  "name": "combowise",
+  "private": false,
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Fast-food value calculator for UK chains (KFC, Popeyes) — auditor + basket optimiser with live menu proxy",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mingminghome/combowise.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "pages:dev": "npm run build && npx --yes wrangler pages dev dist --compatibility-date=2024-09-23"
+  },
+  "dependencies": {
+    "lucide-react": "^1.25.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "oxlint": "^1.71.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.1.1"
+  }
+}

@@ -1,0 +1,8 @@
+# https://combowise.pages.dev
+User-agent: *
+Allow: /
+
+# Live API proxy — no need for crawlers
+Disallow: /api/
+
+Sitemap: https://combowise.pages.dev/sitemap.xml
