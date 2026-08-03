@@ -1,22 +1,22 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
+import type { TFunction } from '../core/i18n';
 import { BaseFastFoodProvider } from '../core/providers/baseProvider';
 
 interface ProviderSelectorProps {
   providers: BaseFastFoodProvider[];
   onSelect: (provider: BaseFastFoodProvider) => void;
+  t: TFunction;
 }
 
-/** Simplified home: brand line + restaurant list (no heavy hero / privacy wall). */
-export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ providers, onSelect }) => {
+/** Restaurant list only — page chrome (header + top nav) lives in App. */
+export const ProviderSelector: React.FC<ProviderSelectorProps> = ({
+  providers,
+  onSelect,
+  t,
+}) => {
   return (
     <div className="provider-selector provider-selector--simple">
-      <header className="home-simple-header">
-        <p className="home-brand">ComboWise</p>
-        <h1>Choose a restaurant</h1>
-        <p className="home-simple-sub">Live UK prices · basket optimiser · combo check</p>
-      </header>
-
       <div className="provider-selector-list">
         {providers.map((provider) => (
           <button
@@ -29,7 +29,7 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ providers, o
               className="provider-selector-logo"
               style={{
                 background: provider.accentColor,
-                boxShadow: `0 4px 14px ${provider.accentColor}55`,
+                boxShadow: `0 6px 20px ${provider.accentColor}44`,
               }}
             >
               {provider.logoText}
@@ -38,14 +38,23 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({ providers, o
               <div className="provider-selector-name">{provider.name}</div>
               <div className="provider-selector-meta">
                 <span>{provider.country}</span>
+                <span className="provider-selector-dot" aria-hidden>
+                  ·
+                </span>
+                <span>{provider.currencySymbol}</span>
               </div>
+              <div className="provider-selector-hint">{t('home.subtitle')}</div>
             </div>
-            <ChevronRight size={20} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+            <span className="provider-selector-chevron" aria-hidden>
+              <ChevronRight size={22} strokeWidth={2.25} />
+            </span>
           </button>
         ))}
       </div>
 
-      <p className="provider-selector-soon">More chains coming soon</p>
+      <p className="provider-selector-soon">{t('home.moreSoon')}</p>
     </div>
   );
 };
+
+export default ProviderSelector;

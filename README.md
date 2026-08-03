@@ -154,7 +154,10 @@ See **[`.env.example`](./.env.example)**. Never commit `.env`, `.env.local`, or 
 |----------|---------|
 | `KFC_API_KEY` | **Required** for KFC live menu/stores |
 | `VITE_LIVE_API_BASE` | Default `/api/live` |
-| `VITE_GTM_ID` | Optional analytics |
+| `VITE_GTM_ID` | Optional analytics (never hardcoded) |
+| `VITE_GOOGLE_SITE_VERIFICATION` | Optional Search Console meta (never hardcoded) |
+| `VITE_BUY_ME_A_PINT_URL` | Optional “Buy me a pint” link (never hardcoded; empty hides UI) |
+| `VITE_BUY_ME_A_PINT_IMG` | Optional custom BMC button image |
 | `KFC_*` / `POPEYES_*` | Optional host overrides (see docs) |
 
 ---

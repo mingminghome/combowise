@@ -25,10 +25,12 @@ Cloudflare Pages Free  (your-project.pages.dev)
 
 | Variable | Where | Notes |
 |----------|--------|--------|
-| `VITE_GTM_ID` | Pages **Build** env + local `.env` | Optional GTM. Empty = no GTM/GA. |
+| `VITE_BUY_ME_A_PINT_URL` | GitHub Actions **variable** + local `.env` | Shows “Buy me a pint”. CI falls back to `https://buymeacoffee.com/mingminghomework`. |
+| `VITE_GTM_ID` | GitHub Actions variable + local `.env` | Optional GTM. Empty = no GTM/GA. |
+| `VITE_GOOGLE_SITE_VERIFICATION` | GitHub Actions variable + local `.env` | Optional Search Console meta. |
 | `KFC_API_KEY` | Pages **Function / Production** env + local `.dev.vars` / shell | **Required** for KFC UK live menu. See `.env.example`. |
 
-GTM is **not hardcoded**. The SPA loads it only when `VITE_GTM_ID` is set (`src/core/analytics/gtm.ts`).
+GTM / pint URL are **not hardcoded in app source**. The SPA only shows them when set at **build** time (`VITE_*`).
 
 ---
 

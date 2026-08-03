@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MapPin } from 'lucide-react';
 import { BaseFastFoodProvider } from './core/providers/baseProvider';
 import { providerRegistry } from './core/providers/providerRegistry';
+import { PROJECT } from './core/project';
 import { MenuSyncService } from './core/services/menuSyncService';
 import { StoreSearchService } from './core/services/storeSearchService';
 import { StoreSearchBar } from './components/StoreSearchBar';
@@ -14,11 +15,12 @@ import { InstallAppBanner } from './components/InstallAppBanner';
 import { Mode1Auditor } from './components/Mode1Auditor';
 import { Mode2Optimizer } from './components/Mode2Optimizer';
 import { ModeSwitcherBar, type AppMode } from './components/ModeSwitcherBar';
+import { TopNavIcons } from './components/TopNavIcons';
+import { useLocale } from './hooks/useLocale';
 import type { MenuLoadResult, MenuUiPhase, StoreLocation } from './core/types/provider';
 
-const GITHUB_URL = 'https://github.com/mingminghomework';
-
 export function App() {
+  const { t } = useLocale();
   const [currentProvider, setCurrentProvider] = useState<BaseFastFoodProvider | null>(null);
   const [locationTierId, setLocationTierId] = useState<string>('standard');
   const [activeTab, setActiveTab] = useState<AppMode>('mode2');
@@ -87,34 +89,55 @@ export function App() {
     !!currentProvider && !!StoreSearchService.getSelectedStore(currentProvider.id);
   const modesUnlocked = !!currentProvider && (!storeGated || storeSelected);
   const onHomeShell = !currentProvider;
+  /** OriginWise check-home: landing has no bottom nav / no side rail — top icons only. */
+  const isHomeLanding = onHomeShell && homeTab === 'home';
+  const hideBottomNav = isHomeLanding;
 
   const renderHomeBody = () => {
     switch (homeTab) {
       case 'settings':
-        return <SettingsScreen onNavigate={setHomeTab} />;
+        return <SettingsScreen tab={homeTab} onNavigate={setHomeTab} />;
       case 'about':
-        return <AboutScreen onBack={() => setHomeTab('settings')} />;
+        return <AboutScreen tab={homeTab} onNavigate={setHomeTab} />;
       case 'privacy':
-        return <PrivacyScreen onBack={() => setHomeTab('settings')} />;
+        return <PrivacyScreen onBack={() => setHomeTab('about')} />;
       case 'terms':
-        return <TermsScreen onBack={() => setHomeTab('settings')} />;
+        return <TermsScreen onBack={() => setHomeTab('about')} />;
       case 'home':
       default:
         return (
           <>
+            <header className="app-header home-landing-header">
+              <div>
+                <p className="home-brand">{t('appName')}</p>
+                <h1>{t('home.title')}</h1>
+                <p className="subtitle">{t('home.subtitle')}</p>
+              </div>
+              <TopNavIcons tab={homeTab} onChange={setHomeTab} t={t} />
+            </header>
             <InstallAppBanner />
             <ProviderSelector
               providers={providerRegistry.getAllProviders()}
               onSelect={handleProviderSelect}
+              t={t}
             />
           </>
         );
     }
   };
 
+  const shellClass = [
+    'app-shell',
+    onHomeShell ? 'app-shell--home' : 'app-shell--session',
+    isHomeLanding ? 'app-shell--home-landing' : '',
+    hideBottomNav ? 'app-shell--no-bottom' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
     <div className="app-page">
-      <div className={`app-shell${onHomeShell ? ' app-shell--home' : ' app-shell--session'}`}>
+      <div className={shellClass}>
         {currentProvider && (
           <div className="app-sticky-header app-sticky-header--in-session">
             <StoreSearchBar
@@ -183,9 +206,10 @@ export function App() {
           )}
         </main>
 
-        {onHomeShell ? (
-          <BottomNav tab={homeTab} onChange={setHomeTab} />
-        ) : (
+        {onHomeShell && !hideBottomNav ? (
+          <BottomNav tab={homeTab} onChange={setHomeTab} t={t} />
+        ) : null}
+        {!onHomeShell ? (
           <footer className="app-footer app-footer--session">
             <p className="app-footer-session-line">
               {currentProvider?.getDisclaimer() ||
@@ -193,12 +217,12 @@ export function App() {
               {menuPhase === 'degraded' || menuPhase === 'error'
                 ? ' · Menu sync issue — use Retry if needed.'
                 : ''}{' '}
-              <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+              <a href={PROJECT.repoUrl} target="_blank" rel="noopener noreferrer">
                 @mingminghomework
               </a>
             </p>
           </footer>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -1,27 +1,29 @@
 import React from 'react';
-import { Home, Settings } from 'lucide-react';
+import { Home } from 'lucide-react';
+import type { TFunction } from '../core/i18n';
 
 export type HomeTab = 'home' | 'settings' | 'about' | 'privacy' | 'terms';
 
-const items: Array<{ id: 'home' | 'settings'; label: string; icon: typeof Home }> = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'settings', label: 'Settings', icon: Settings },
+/** Primary tabs only — About / Settings live in top-right icons (BabyWise-aligned). */
+const items: Array<{ id: 'home'; labelKey: string; icon: typeof Home }> = [
+  { id: 'home', labelKey: 'tabs.home', icon: Home },
 ];
 
 interface BottomNavProps {
   tab: HomeTab;
   onChange: (tab: HomeTab) => void;
+  t: TFunction;
 }
 
-/** Babywise-style bottom nav for home shell (hidden in restaurant session). */
-export const BottomNav: React.FC<BottomNavProps> = ({ tab, onChange }) => {
+/**
+ * Bottom nav for non-landing home tabs (Settings / About / legal).
+ * Hidden on the restaurant-pick landing.
+ */
+export const BottomNav: React.FC<BottomNavProps> = ({ tab, onChange, t }) => {
   return (
-    <nav className="bottom-nav" aria-label="Main">
-      {items.map(({ id, label, icon: Icon }) => {
-        const active =
-          tab === id ||
-          (id === 'settings' &&
-            (tab === 'about' || tab === 'privacy' || tab === 'terms'));
+    <nav className="bottom-nav" aria-label={t('tabs.navMain')}>
+      {items.map(({ id, labelKey, icon: Icon }) => {
+        const active = tab === id;
         return (
           <button
             key={id}
@@ -31,7 +33,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ tab, onChange }) => {
             aria-current={active ? 'page' : undefined}
           >
             <Icon size={22} strokeWidth={active ? 2.4 : 2} />
-            {label}
+            {t(labelKey)}
           </button>
         );
       })}

@@ -3,6 +3,11 @@
 #   CLOUDFLARE_API_TOKEN   — API token with Account → Cloudflare Pages → Edit
 #   CLOUDFLARE_ACCOUNT_ID  — e.g. from `npx wrangler whoami`
 #
+# Optional build vars (repo Settings → Secrets and variables → Actions → Variables):
+#   VITE_BUY_ME_A_PINT_URL           — show “Buy me a pint” chip
+#   VITE_GTM_ID                      — enable GTM
+#   VITE_GOOGLE_SITE_VERIFICATION    — Search Console meta
+#
 # Docs: docs/DEPLOY.md
 
 name: Deploy Cloudflare Pages
@@ -36,6 +41,11 @@ jobs:
         run: npm ci
 
       - name: Build
+        env:
+          # Public support link — fallback so pint ships even if repo vars are unset
+          VITE_BUY_ME_A_PINT_URL: ${{ vars.VITE_BUY_ME_A_PINT_URL || 'https://buymeacoffee.com/mingminghomework' }}
+          VITE_GTM_ID: ${{ vars.VITE_GTM_ID }}
+          VITE_GOOGLE_SITE_VERIFICATION: ${{ vars.VITE_GOOGLE_SITE_VERIFICATION }}
         run: npm run build
 
       - name: Deploy to Cloudflare Pages

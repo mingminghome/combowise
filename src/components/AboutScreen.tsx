@@ -1,42 +1,57 @@
 import React from 'react';
 import {
-  ArrowLeft,
+  Bug,
+  Code2,
+  ExternalLink,
   HardDrive,
   Scale,
   Shield,
+  Tag,
   UtensilsCrossed,
   Zap,
 } from 'lucide-react';
+import { PROJECT } from '../core/project';
+import { isBuyMeAPintEnabled } from '../core/support/buyMeAPint';
+import { useLocale } from '../hooks/useLocale';
+import { APP_VERSION } from '../version';
+import type { HomeTab } from './BottomNav';
+import { BuyMeAPint } from './BuyMeAPint';
+import { TopNavIcons } from './TopNavIcons';
 
-const APP_VERSION = '0.1.0';
-const GITHUB_URL = 'https://github.com/mingminghomework';
-const BUY_ME_A_PINT_URL = 'https://buymeacoffee.com/mingminghomework';
-const BUY_ME_A_PINT_IMG =
-  'https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20pint&emoji=%F0%9F%8D%BA&slug=mingminghomework&button_colour=5B6CF0&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00';
+type OssLink = {
+  href: string;
+  labelKey: string;
+  Icon: typeof Code2;
+};
 
 interface AboutScreenProps {
-  onBack: () => void;
+  tab: HomeTab;
+  onNavigate: (tab: HomeTab) => void;
 }
 
 /**
- * About (babywise-style): product pitch, privacy summary, credits.
+ * About (BabyWise-aligned): multi-card layout + top-right icons + optional pint.
  */
-export const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
+export const AboutScreen: React.FC<AboutScreenProps> = ({ tab, onNavigate }) => {
+  const { t } = useLocale();
+  const showPint = isBuyMeAPintEnabled();
+
+  const ossLinks: OssLink[] = [
+    { href: PROJECT.repoUrl, labelKey: 'about.linkSource', Icon: Code2 },
+    { href: PROJECT.licenseUrl, labelKey: 'about.linkLicense', Icon: Scale },
+    { href: PROJECT.issuesUrl, labelKey: 'about.linkIssues', Icon: Bug },
+    { href: PROJECT.releasesUrl, labelKey: 'about.linkReleases', Icon: Tag },
+    { href: PROJECT.securityUrl, labelKey: 'about.linkSecurity', Icon: Shield },
+  ];
+
   return (
     <div className="about-screen">
-      <header className="about-header">
-        <button
-          type="button"
-          className="about-back"
-          aria-label="Back"
-          onClick={onBack}
-        >
-          <ArrowLeft size={20} />
-        </button>
+      <header className="app-header">
         <div>
-          <h1 className="about-title">About</h1>
-          <p className="about-subtitle">ComboWise · smart basket optimiser</p>
+          <h1>{t('about.title')}</h1>
+          <p className="subtitle">{t('about.tagline')}</p>
         </div>
+        <TopNavIcons tab={tab} onChange={onNavigate} t={t} />
       </header>
 
       <section className="glass-card about-card">
@@ -46,111 +61,140 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ onBack }) => {
           </div>
           <div>
             <h2 className="about-section-title" style={{ marginBottom: 4 }}>
-              ComboWise
+              {t('appName')}
             </h2>
-            <p className="about-muted">
-              Compare combos to ala-carte and optimise your basket with live UK
-              menu prices. Built for phones and the web — no account required.
-            </p>
-            <p className="about-muted" style={{ marginTop: 8, fontSize: '0.82rem' }}>
-              Version {APP_VERSION}
-            </p>
+            <p className="about-muted">{t('about.intro')}</p>
+            <div className="about-meta-row">
+              <span className="about-chip">
+                {t('about.versionChip', { v: APP_VERSION })}
+              </span>
+              <span className="about-chip about-chip-mit">
+                {t('about.licenseShort')}
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="glass-card about-card">
         <h2 className="about-section-title">
-          <Shield size={16} style={{ verticalAlign: -2, marginRight: 6 }} />
-          Private &amp; local
+          <Scale size={16} style={{ verticalAlign: -2, marginRight: 6 }} />
+          {t('about.openSourceTitle')}
         </h2>
-        <p className="about-muted">
-          We keep things simple: no login, and your picks stay on this device.
+        <p className="about-muted">{t('about.openSourceBody')}</p>
+        <p className="about-copyright about-muted">
+          {t('about.copyrightLine', {
+            year: String(PROJECT.copyrightYear),
+            name: PROJECT.copyrightHolder,
+          })}
         </p>
-        <ul className="about-list about-muted">
-          <li>
-            Store picks, downloaded menus, basket work, and theme stay in this
-            browser only.
-          </li>
-          <li>We don&apos;t store your personal basket data on a ComboWise server.</li>
-          <li>
-            Live menu/store lookups talk to restaurant systems (via our proxy) only
-            to fetch prices — not to sync your cart.
-          </li>
-          <li>
-            Wipe local data anytime with <strong>Clear</strong> in the toolbar after
-            you open a restaurant.
-          </li>
+        <p className="about-muted about-license-note">{t('about.licenseAsIs')}</p>
+        <p className="about-repo-url">
+          <a href={PROJECT.repoUrl} target="_blank" rel="noopener noreferrer">
+            {PROJECT.repoLabel}
+          </a>
+        </p>
+        <ul className="about-oss-links">
+          {ossLinks.map(({ href, labelKey, Icon }) => (
+            <li key={href}>
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="about-oss-link"
+              >
+                <span className="about-oss-link-left">
+                  <Icon size={16} aria-hidden />
+                  {t(labelKey)}
+                </span>
+                <ExternalLink size={14} className="about-muted" aria-hidden />
+              </a>
+            </li>
+          ))}
         </ul>
       </section>
 
       <section className="glass-card about-card">
         <h2 className="about-section-title">
+          <Shield size={16} style={{ verticalAlign: -2, marginRight: 6 }} />
+          {t('about.privacyTitle')}
+        </h2>
+        <p className="about-muted">{t('about.privacyLead')}</p>
+        <ul className="about-list about-muted">
+          <li>{t('about.privacyBullet1')}</li>
+          <li>{t('about.privacyBullet2')}</li>
+          <li>{t('about.privacyBullet3')}</li>
+          <li>{t('about.privacyBullet4')}</li>
+          <li>{t('about.privacyBullet5')}</li>
+        </ul>
+        <p className="about-legal-links about-muted">
+          <a href="/privacy.html" target="_blank" rel="noopener noreferrer">
+            {t('about.privacyPolicyLink')}
+          </a>
+          <span aria-hidden> · </span>
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer">
+            {t('about.termsLink')}
+          </a>
+        </p>
+      </section>
+
+      <section className="glass-card about-card">
+        <h2 className="about-section-title">
           <UtensilsCrossed size={16} style={{ verticalAlign: -2, marginRight: 6 }} />
-          How it works
+          {t('about.howTitle')}
         </h2>
         <ul className="about-list about-muted">
-          <li>
-            <strong>Basket Optimiser</strong> — build a wishlist and see better
-            packs / meal deals when they save money.
-          </li>
-          <li>
-            <strong>Combo Auditor</strong> — check whether a combo is worth it vs
-            buying items separately.
-          </li>
-          <li>
-            Prices are <strong>indicative snapshots</strong>, not live official app
-            checkout totals. Always confirm in the restaurant app.
-          </li>
+          <li>{t('about.howBullet1')}</li>
+          <li>{t('about.howBullet2')}</li>
+          <li>{t('about.howBullet3')}</li>
         </ul>
       </section>
 
       <section className="glass-card about-card">
         <h2 className="about-section-title">
           <HardDrive size={16} style={{ verticalAlign: -2, marginRight: 6 }} />
-          Local by design
+          {t('about.designTitle')}
         </h2>
-        <p className="about-muted">
-          Menus are cached on your device so you can revisit a store quickly.
-          Clearing cache forces a fresh download next time.
-        </p>
+        <p className="about-muted">{t('about.designLead')}</p>
+        <div className="about-design-block">
+          <h3 className="about-h3">
+            <HardDrive size={14} /> {t('about.designWhyTitle')}
+          </h3>
+          <ul className="about-list about-muted">
+            <li>{t('about.designWhy1')}</li>
+            <li>{t('about.designWhy2')}</li>
+            <li>{t('about.designWhy3')}</li>
+          </ul>
+        </div>
         <p className="about-muted" style={{ marginTop: '0.65rem' }}>
-          On Android Chrome, use <strong>Install app</strong> (or the home banner).
-          On iPhone Safari: Share → <strong>Add to Home Screen</strong> for a full-screen app icon.
+          {t('about.designInstall')}
         </p>
       </section>
 
       <section className="glass-card about-card">
         <h2 className="about-section-title">
           <Scale size={16} style={{ verticalAlign: -2, marginRight: 6 }} />
-          Disclaimer
+          {t('about.disclaimerTitle')}
         </h2>
-        <p className="about-muted">
-          ComboWise is an independent tool and is not affiliated with KFC, Popeyes,
-          or any other restaurant brand. Trademarks belong to their owners. Menu
-          items, prices, and availability change by store and daypart — use official
-          apps for orders.
-        </p>
+        <p className="about-muted">{t('about.disclaimerBody')}</p>
       </section>
 
       <section className="glass-card about-card about-credits">
         <p className="about-credits-line">
-          Created by{' '}
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-            mingminghomework
+          {t('about.createdBy')}{' '}
+          <a href={PROJECT.repoUrl} target="_blank" rel="noopener noreferrer">
+            {PROJECT.copyrightHolder}
           </a>
         </p>
-        <p className="about-credits-pint">
-          <a
-            href={BUY_ME_A_PINT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Buy me a pint on Buy Me a Coffee"
-            className="app-footer-bmc"
-          >
-            <img src={BUY_ME_A_PINT_IMG} alt="Buy me a pint" height={40} />
-          </a>
+        <p className="about-muted" style={{ marginTop: 6, fontSize: '0.82rem' }}>
+          {t('about.contributionsWelcome')}
         </p>
+        {showPint ? (
+          <div className="about-pint">
+            <p className="about-muted about-pint-label">{t('support.thanks')}</p>
+            <BuyMeAPint t={t} />
+          </div>
+        ) : null}
       </section>
     </div>
   );

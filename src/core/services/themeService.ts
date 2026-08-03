@@ -51,6 +51,17 @@ export class ThemeService {
     this.notifySubscribers();
   }
 
+  /** Remove stored preference and follow system (used by clean-data). */
+  static clearStoredTheme() {
+    try {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+    } catch (e) {
+      console.warn('Failed to clear theme setting:', e);
+    }
+    this.applyTheme();
+    this.notifySubscribers();
+  }
+
   static getResolvedTheme(): 'dark' | 'light' {
     const mode = this.getThemeMode();
     if (mode === 'auto') {
