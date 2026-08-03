@@ -8,6 +8,7 @@ import { StoreSearchService } from './core/services/storeSearchService';
 import { StoreSearchBar } from './components/StoreSearchBar';
 import { ProviderSelector } from './components/ProviderSelector';
 import { AboutScreen } from './components/AboutScreen';
+import { AppTopBar } from './components/AppTopBar';
 import { SettingsScreen } from './components/SettingsScreen';
 import { PrivacyScreen, TermsScreen } from './components/LegalScreen';
 import { BottomNav, type HomeTab } from './components/BottomNav';
@@ -15,7 +16,6 @@ import { InstallAppBanner } from './components/InstallAppBanner';
 import { Mode1Auditor } from './components/Mode1Auditor';
 import { Mode2Optimizer } from './components/Mode2Optimizer';
 import { ModeSwitcherBar, type AppMode } from './components/ModeSwitcherBar';
-import { TopNavIcons } from './components/TopNavIcons';
 import { useLocale } from './hooks/useLocale';
 import type { MenuLoadResult, MenuUiPhase, StoreLocation } from './core/types/provider';
 
@@ -89,7 +89,7 @@ export function App() {
     !!currentProvider && !!StoreSearchService.getSelectedStore(currentProvider.id);
   const modesUnlocked = !!currentProvider && (!storeGated || storeSelected);
   const onHomeShell = !currentProvider;
-  /** OriginWise check-home: landing has no bottom nav / no side rail — top icons only. */
+  /** Landing has no bottom nav — top bar only. */
   const isHomeLanding = onHomeShell && homeTab === 'home';
   const hideBottomNav = isHomeLanding;
 
@@ -98,7 +98,7 @@ export function App() {
       case 'settings':
         return <SettingsScreen tab={homeTab} onNavigate={setHomeTab} />;
       case 'about':
-        return <AboutScreen tab={homeTab} onNavigate={setHomeTab} />;
+        return <AboutScreen />;
       case 'privacy':
         return <PrivacyScreen onBack={() => setHomeTab('about')} />;
       case 'terms':
@@ -107,14 +107,10 @@ export function App() {
       default:
         return (
           <>
-            <header className="app-header home-landing-header">
-              <div>
-                <p className="home-brand">{t('appName')}</p>
-                <h1>{t('home.title')}</h1>
-                <p className="subtitle">{t('home.subtitle')}</p>
-              </div>
-              <TopNavIcons tab={homeTab} onChange={setHomeTab} t={t} />
-            </header>
+            <div className="page-heading">
+              <h1>{t('home.title')}</h1>
+              <p className="subtitle">{t('home.subtitle')}</p>
+            </div>
             <InstallAppBanner />
             <ProviderSelector
               providers={providerRegistry.getAllProviders()}
@@ -160,6 +156,13 @@ export function App() {
         )}
 
         <main className="app-main">
+          {/* Inside main so logo/content share the same width (no gutter mismatch) */}
+          {onHomeShell ? (
+            <div className="app-topbar-slot">
+              <AppTopBar tab={homeTab} onNavigate={setHomeTab} t={t} />
+            </div>
+          ) : null}
+
           {onHomeShell ? (
             renderHomeBody()
           ) : (

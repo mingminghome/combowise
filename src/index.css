@@ -264,6 +264,18 @@ h6 {
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  /*
+   * Hide classic scrollbar so layout never shifts left/right when content
+   * grows (Home ↔ Settings). Scrolling still works (trackpad / wheel / touch).
+   */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* legacy Edge */
+}
+
+.app-main::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chromium / Safari */
 }
 
 /*
@@ -1376,10 +1388,11 @@ button:active:not(:disabled),
   flex-shrink: 0;
 }
 
+/* Compact restaurant rows (aligned column width with Settings) */
 .provider-selector-list {
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 0.55rem;
   width: 100%;
   max-width: 100%;
 }
@@ -1387,10 +1400,10 @@ button:active:not(:disabled),
 .provider-selector-card {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1.1rem 1.2rem;
-  min-height: 88px;
-  border-radius: 16px;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  min-height: 64px;
+  border-radius: 12px;
   background: var(--bg-card);
   border: 1.5px solid var(--border-color);
   cursor: pointer;
@@ -1398,7 +1411,7 @@ button:active:not(:disabled),
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
-    transform 0.15s ease;
+    background 0.15s ease;
   box-shadow: var(--shadow);
   width: 100%;
   font: inherit;
@@ -1408,25 +1421,23 @@ button:active:not(:disabled),
 
 .provider-selector-card:hover {
   border-color: var(--primary-border);
-  box-shadow:
-    var(--shadow),
-    0 8px 28px rgba(0, 0, 0, 0.08);
+  background: color-mix(in srgb, var(--bg-card) 88%, var(--primary-soft));
 }
 
 .provider-selector-card:active {
-  transform: scale(0.992);
+  transform: scale(0.995);
 }
 
 .provider-selector-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   font-weight: 900;
-  font-size: 0.92rem;
+  font-size: 0.72rem;
   letter-spacing: -0.02em;
   flex-shrink: 0;
 }
@@ -1438,7 +1449,7 @@ button:active:not(:disabled),
 
 .provider-selector-name {
   font-weight: 800;
-  font-size: 1.12rem;
+  font-size: 0.98rem;
   color: var(--text-main);
   font-family: var(--font-heading);
   letter-spacing: -0.02em;
@@ -1446,21 +1457,18 @@ button:active:not(:disabled),
 }
 
 .provider-selector-meta {
-  font-size: 0.84rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.25rem;
+  gap: 0.3rem;
+  margin-top: 0.12rem;
 }
 
+/* Hint lives in page subtitle — hide on cards to keep rows compact */
 .provider-selector-hint {
   display: none;
-  margin-top: 0.4rem;
-  font-size: 0.8rem;
-  line-height: 1.35;
-  color: var(--text-muted);
 }
 
 .provider-selector-dot {
@@ -1469,9 +1477,9 @@ button:active:not(:disabled),
 
 .provider-selector-chevron {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1487,127 +1495,11 @@ button:active:not(:disabled),
 }
 
 .provider-selector-soon {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   text-align: center;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
   opacity: 0.75;
-}
-
-/* Tablet: roomier tiles */
-@media (min-width: 640px) {
-  .provider-selector-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
-  }
-
-  .provider-selector-card {
-    padding: 1.25rem 1.35rem;
-    min-height: 104px;
-    border-radius: 18px;
-    gap: 1.15rem;
-  }
-
-  .provider-selector-logo {
-    width: 68px;
-    height: 68px;
-    border-radius: 18px;
-    font-size: 1.05rem;
-  }
-
-  .provider-selector-name {
-    font-size: 1.28rem;
-  }
-
-  .provider-selector-meta {
-    font-size: 0.9rem;
-    margin-top: 0.3rem;
-  }
-
-  .provider-selector-hint {
-    display: block;
-  }
-
-  .provider-selector-chevron {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-  }
-}
-
-/* Web: large two-up cards that fill the shell */
-@media (min-width: 1024px) {
-  .provider-selector--simple {
-    flex: 1 1 auto;
-    justify-content: flex-start;
-    padding-top: 0.35rem;
-  }
-
-  .provider-selector-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.25rem;
-    width: 100%;
-    max-width: none;
-  }
-
-  .provider-selector-card {
-    padding: 1.55rem 1.65rem;
-    min-height: 132px;
-    border-radius: 20px;
-    gap: 1.35rem;
-  }
-
-  .provider-selector-logo {
-    width: 84px;
-    height: 84px;
-    border-radius: 20px;
-    font-size: 1.2rem;
-  }
-
-  .provider-selector-name {
-    font-size: 1.45rem;
-  }
-
-  .provider-selector-meta {
-    font-size: 0.95rem;
-    margin-top: 0.35rem;
-  }
-
-  .provider-selector-hint {
-    font-size: 0.88rem;
-    margin-top: 0.5rem;
-    max-width: 28rem;
-  }
-
-  .provider-selector-chevron {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-  }
-
-  .provider-selector-soon {
-    margin-top: 1.75rem;
-    font-size: 0.88rem;
-  }
-}
-
-@media (min-width: 1280px) {
-  .provider-selector-card {
-    padding: 1.75rem 1.85rem;
-    min-height: 148px;
-  }
-
-  .provider-selector-logo {
-    width: 92px;
-    height: 92px;
-    font-size: 1.28rem;
-  }
-
-  .provider-selector-name {
-    font-size: 1.55rem;
-  }
 }
 
 /* Privacy note — closable + auto-dismiss */
@@ -1688,6 +1580,86 @@ button:active:not(:disabled),
 }
 
 /* Page header (home / settings / about) — BabyWise / OriginWise-aligned */
+/* ── Shared top bar (logo + nav) — lives inside .app-main ── */
+.app-topbar-slot {
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  /* Stick under shell top while page content scrolls */
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  margin: -0.85rem 0 0;
+  padding: 0.55rem 0 0.35rem;
+  background: linear-gradient(
+    180deg,
+    var(--bg-dark) 0%,
+    var(--bg-dark) 72%,
+    transparent 100%
+  );
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  min-height: 44px;
+  padding: 0;
+}
+
+.app-topbar-brand {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0.2rem 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 1.08rem;
+  letter-spacing: -0.03em;
+  color: var(--text-main);
+  line-height: 1.2;
+  text-align: left;
+}
+
+.app-topbar-brand:hover {
+  color: var(--primary);
+}
+
+/* Page title under the shared top bar */
+.page-heading {
+  width: 100%;
+  padding: 0.15rem 0 0.55rem;
+}
+
+.page-heading h1 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-family: var(--font-heading);
+  color: var(--text-main);
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.page-heading .subtitle {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0.15rem 0 0;
+  line-height: 1.4;
+}
+
+.page-heading--with-back {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+}
+
+/* Legacy app-header (unused chrome; keep minimal alias) */
 .app-header {
   display: flex;
   align-items: flex-start;
@@ -2734,23 +2706,45 @@ button:active:not(:disabled),
 }
 
 /*
- * Wide web home — same shell width as session (no narrow 720px cap).
- * No left rail; bottom nav stays at the bottom when shown.
+ * Home shell: frame width = content width (Settings / About / restaurant list).
+ * Session shell stays wide for optimiser/auditor. No nested double-centering.
  */
 @media (min-width: 1024px) {
   .app-shell--home,
   .app-shell--home-landing {
     display: flex;
     flex-direction: column;
-    /* Use the shared wide shell (--shell-max: 1180px from dashboard rules) */
+    /* Content-sized frame — app-main fills this, not a full-bleed 1180px shell */
+    --shell-max: min(640px, 100%);
   }
 
   .app-shell--home .app-main {
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
-    padding: 1.35rem 1.75rem 1.75rem;
+    padding: 0.85rem 1.15rem 1.5rem;
+  }
+
+  .app-shell--home .app-main > *,
+  .settings-screen,
+  .about-screen,
+  .provider-selector--simple {
+    width: 100%;
+    max-width: none;
+  }
+
+  .app-shell--home .app-topbar-slot {
+    margin-top: -0.85rem;
+    padding-top: 0.65rem;
+    background: linear-gradient(
+      180deg,
+      var(--bg-card) 0%,
+      var(--bg-card) 72%,
+      transparent 100%
+    );
   }
 
   .app-shell--home .bottom-nav {
@@ -2760,27 +2754,11 @@ button:active:not(:disabled),
     border-radius: 0 0 22px 22px;
   }
 
-  .home-landing-header {
-    max-width: none;
-  }
-
-  /* Settings / About: readable column, left-aligned in wide shell */
-  .settings-screen,
-  .about-screen {
-    width: 100%;
-    max-width: 640px;
-  }
-
-  .provider-selector--simple {
-    width: 100%;
-    max-width: none;
-  }
-
   .settings-card {
     width: 100%;
   }
 
-  /* Session shell: sticky header + scroll main + footer in one frame */
+  /* Session shell: wide frame for tools */
   .app-shell--session {
     display: flex;
     flex-direction: column;
@@ -2802,8 +2780,13 @@ button:active:not(:disabled),
 }
 
 @media (min-width: 1280px) {
+  .app-shell--home,
+  .app-shell--home-landing {
+    --shell-max: min(640px, 100%);
+  }
+
   .app-shell--home .app-main {
-    padding: 1.5rem 2rem 1.85rem;
+    padding: 0.95rem 1.25rem 1.65rem;
   }
 }
 

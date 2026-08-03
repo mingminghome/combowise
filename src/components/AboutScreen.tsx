@@ -14,9 +14,7 @@ import { PROJECT } from '../core/project';
 import { isBuyMeAPintEnabled } from '../core/support/buyMeAPint';
 import { useLocale } from '../hooks/useLocale';
 import { APP_VERSION } from '../version';
-import type { HomeTab } from './BottomNav';
 import { BuyMeAPint } from './BuyMeAPint';
-import { TopNavIcons } from './TopNavIcons';
 
 type OssLink = {
   href: string;
@@ -24,15 +22,10 @@ type OssLink = {
   Icon: typeof Code2;
 };
 
-interface AboutScreenProps {
-  tab: HomeTab;
-  onNavigate: (tab: HomeTab) => void;
-}
-
 /**
- * About (BabyWise-aligned): multi-card layout + top-right icons + optional pint.
+ * About (BabyWise-aligned). Chrome top bar is AppTopBar in App.
  */
-export const AboutScreen: React.FC<AboutScreenProps> = ({ tab, onNavigate }) => {
+export const AboutScreen: React.FC = () => {
   const { t } = useLocale();
   const showPint = isBuyMeAPintEnabled();
 
@@ -46,13 +39,10 @@ export const AboutScreen: React.FC<AboutScreenProps> = ({ tab, onNavigate }) => 
 
   return (
     <div className="about-screen">
-      <header className="app-header">
-        <div>
-          <h1>{t('about.title')}</h1>
-          <p className="subtitle">{t('about.tagline')}</p>
-        </div>
-        <TopNavIcons tab={tab} onChange={onNavigate} t={t} />
-      </header>
+      <div className="page-heading">
+        <h1>{t('about.title')}</h1>
+        <p className="subtitle">{t('about.tagline')}</p>
+      </div>
 
       <section className="glass-card about-card">
         <div className="about-hero">

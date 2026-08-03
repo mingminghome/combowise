@@ -10,7 +10,6 @@ import { useLocale } from '../hooks/useLocale';
 import { APP_VERSION } from '../version';
 import type { HomeTab } from './BottomNav';
 import { CleanDataPanel } from './CleanDataPanel';
-import { TopNavIcons } from './TopNavIcons';
 
 interface SettingsScreenProps {
   tab: HomeTab;
@@ -18,10 +17,9 @@ interface SettingsScreenProps {
 }
 
 /**
- * Flat Settings (BabyWise-aligned): language, theme, delete data.
+ * Flat Settings (BabyWise-aligned). Chrome top bar is AppTopBar in App.
  */
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
-  tab,
   onNavigate,
 }) => {
   const { locale, setLocale, t } = useLocale();
@@ -45,13 +43,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
   return (
     <div className="settings-screen">
-      <header className="app-header">
-        <div>
-          <h1>{t('settings.title')}</h1>
-          <p className="subtitle">{t('settings.subtitle')}</p>
-        </div>
-        <TopNavIcons tab={tab} onChange={onNavigate} t={t} />
-      </header>
+      <div className="page-heading">
+        <h1>{t('settings.title')}</h1>
+        <p className="subtitle">{t('settings.subtitle')}</p>
+      </div>
 
       <section className="glass-card settings-card">
         <h2 className="settings-section-title">{t('settings.language')}</h2>

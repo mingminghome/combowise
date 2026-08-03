@@ -46,7 +46,7 @@ export const ProviderSelector: React.FC<ProviderSelectorProps> = ({
               <div className="provider-selector-hint">{t('home.subtitle')}</div>
             </div>
             <span className="provider-selector-chevron" aria-hidden>
-              <ChevronRight size={22} strokeWidth={2.25} />
+              <ChevronRight size={18} strokeWidth={2.25} />
             </span>
           </button>
         ))}
