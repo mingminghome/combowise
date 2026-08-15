@@ -21,6 +21,15 @@ import {
 import { resolveUnitDisplayName, resolveUnitPpiLabel } from '../utils/unitLabels';
 
 /**
+ * Campaign / offer SKUs priced in the name (“20 Hot Wings for £7.99”).
+ * These sit in the Click & Collect feed but often never appear in the app browse
+ * menu — do not recommend them as something you can tap to add.
+ */
+export function isCampaignPricedName(name: string): boolean {
+  return /for\s*(just\s*)?(£\s*)?\d+(\.\d+)?/i.test(name || '');
+}
+
+/**
  * True multi-item deal for Combo Auditor (Mode 1).
  * Excludes pure countable packs that are only mis-tagged isCombo.
  */
@@ -253,7 +262,7 @@ export abstract class BaseFastFoodProvider {
   ): MenuItem[] {
     const raw = this.getItems(locationTierId, options).filter((item) => {
       // Campaign multi-buys (e.g. “20 Hot Wings for £7.99”) — not everyday street packs
-      if (/for\s*(just\s*)?(£\s*)?\d+(\.\d+)?/i.test(item.name)) return false;
+      if (isCampaignPricedName(item.name)) return false;
 
       // Meal-builder / POS slot prices (e.g. “Large popcorn chicken choice”)
       const d = (item.description || '').toLowerCase();

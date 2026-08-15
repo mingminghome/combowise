@@ -1,4 +1,4 @@
-import { BaseFastFoodProvider } from '../providers/baseProvider';
+import { BaseFastFoodProvider, isCampaignPricedName } from '../providers/baseProvider';
 import type { MenuItem } from '../types/provider';
 import type { OptimizationResult, OptimisedBundle, Recommendation, WishlistItem } from '../types/optimizer';
 import { UserRewardsService } from '../services/userRewardsService';
@@ -67,6 +67,8 @@ function purePacksForUnit(allItems: MenuItem[], unitKey: string): PurePack[] {
   const packs: PurePack[] = [];
   for (const i of allItems) {
     if (!i.atomicUnits || i.price <= 0) continue;
+    // API-only offer SKUs (“20 Hot Wings for £7.99”) — not in app browse
+    if (isCampaignPricedName(i.name)) continue;
     // Pure single-kind packs only (Mode 2 selectable packs + mis-tagged combos)
     const keys = Object.keys(i.atomicUnits);
     if (keys.length !== 1 || keys[0] !== unitKey) continue;
@@ -186,6 +188,7 @@ export class BasketOptimizer {
     // 4. Multi-unit combos/meals (burger+fries+drink) — only true multi-kind combos
     const multiCombos = allItems.filter((i) => {
       if (!i.isCombo || !i.atomicUnits || i.price <= 0) return false;
+      if (isCampaignPricedName(i.name)) return false;
       const keys = Object.keys(i.atomicUnits);
       return keys.length > 1;
     });
@@ -288,6 +291,7 @@ export class BasketOptimizer {
         .filter(
           (i) =>
             !i.isCombo &&
+            !isCampaignPricedName(i.name) &&
             (i.atomicUnits?.[unitKey] || 0) > 0 &&
             !wishlistPreferred.some((w) => w.id === i.id)
         )
