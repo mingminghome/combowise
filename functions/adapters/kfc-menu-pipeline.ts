@@ -595,9 +595,13 @@ function isFlavourOnlySlot(slotName: string): boolean {
  *
  * Skips “Choose your flavour” (mayo on the item, not a side dip pot).
  */
-export function extractUnitsFromMealComponents(mealComponents: any[]): Record<string, number> {
+export function extractUnitsFromMealComponents(
+  mealComponents: any[],
+  mealName = ''
+): Record<string, number> {
   const units: Record<string, number> = {};
   if (!Array.isArray(mealComponents)) return units;
+  const mealN = normText(mealName);
 
   const add = (partial: Record<string, number>) => {
     for (const [k, v] of Object.entries(partial)) {
@@ -610,17 +614,10 @@ export function extractUnitsFromMealComponents(mealComponents: any[]): Record<st
     const slotName = String(mc?.name || '');
     if (isFlavourOnlySlot(slotName)) continue;
 
-    const groups = Array.isArray(mc?.componentItemGroups) ? mc.componentItemGroups : [];
-    // Default choice = first group’s first level-1 (or first) component item
-    let pickedName: string | null = null;
-    for (const g of groups) {
-      const cis = Array.isArray(g?.componentItems) ? g.componentItems : [];
-      const level1 = cis.find((ci: any) => ci?.levelId === 1) || cis[0];
-      if (level1?.name) {
-        pickedName = String(level1.name);
-        break;
-      }
-    }
+    const pick = defaultSlotPick(mc);
+    const pickedName = pick?.name ? String(pick.name) : '';
+    // Wrapper “Your main order” that just restates the meal name
+    if (mealN && pickedName && normText(pickedName) === mealN) continue;
     if (!pickedName) continue;
 
     let partial = extractAtomicUnits(pickedName, '', '');
@@ -633,16 +630,66 @@ export function extractUnitsFromMealComponents(mealComponents: any[]): Record<st
   return units;
 }
 
-/** Price on Meals lives in levels[]; Singles use top-level price. */
-export function resolveKfcItemPrice(rawItem: any): number {
-  const top = parseFloat(String(rawItem?.price ?? ''));
-  if (!isNaN(top) && top > 0) return Math.round(top * 100) / 100;
-  const levels = Array.isArray(rawItem?.levels) ? rawItem.levels : [];
-  for (const lv of levels) {
-    const p = parseFloat(String(lv?.price ?? ''));
-    if (!isNaN(p) && p > 0) return Math.round(p * 100) / 100;
+/** First option in a slot = website/app default (Pepsi MAX, Regular fries, …). */
+function componentUpcharge(ci: any, upsellLevelId = 1): number {
+  const prices = Array.isArray(ci?.prices) ? ci.prices : [];
+  const hit =
+    prices.find((p: any) => Number(p?.upsellLevelId) === upsellLevelId) || prices[0];
+  const n = parseFloat(String(hit?.price ?? ''));
+  return !isNaN(n) && n > 0 ? n : 0;
+}
+
+function defaultSlotPick(mc: any): any | null {
+  const groups = Array.isArray(mc?.componentItemGroups) ? mc.componentItemGroups : [];
+  for (const g of groups) {
+    const cis = Array.isArray(g?.componentItems) ? g.componentItems : [];
+    const level1 = cis.find((ci: any) => ci?.levelId === 1) || cis[0];
+    if (level1) return level1;
   }
-  return 0;
+  return null;
+}
+
+function defaultSlotUpcharge(mc: any): number {
+  if (isFlavourOnlySlot(String(mc?.name || ''))) return 0;
+  const pick = defaultSlotPick(mc);
+  return pick ? componentUpcharge(pick, 1) : 0;
+}
+
+function mealBasePrice(rawItem: any): number {
+  const top = parseFloat(String(rawItem?.price ?? ''));
+  if (!isNaN(top) && top > 0) return top;
+  const levels = Array.isArray(rawItem?.levels) ? rawItem.levels : [];
+  const lv = levels.find((l: any) => l?.levelId === 1) || levels[0];
+  const p = parseFloat(String(lv?.price ?? ''));
+  return !isNaN(p) && p > 0 ? p : 0;
+}
+
+/**
+ * What the app shows after “add to basket” defaults.
+ * KFC now stores food-only on levels[] and puts drink/side/size extras on
+ * mealComponent option prices (e.g. 10pc wings meal 7.71 + Pepsi 1.28 = 8.99).
+ */
+export function resolveKfcItemPrice(rawItem: any): number {
+  const base = mealBasePrice(rawItem);
+  if (base <= 0) return 0;
+  const extras = Array.isArray(rawItem?.mealComponents)
+    ? rawItem.mealComponents.reduce((sum: number, mc: any) => sum + defaultSlotUpcharge(mc), 0)
+    : 0;
+  return Math.round((base + extras) * 100) / 100;
+}
+
+/** Size-picker shells (“Hot Wings Box Meal”) — real SKUs are the 6pc / 10pc children. */
+export function isKfcSizeChooserMeal(rawItem: any): boolean {
+  if (rawItem?.type !== 'Meal') return false;
+  const mcs = rawItem?.mealComponents;
+  if (!Array.isArray(mcs)) return false;
+  return mcs.some((mc: any) => /choose your size/i.test(String(mc?.name || '')));
+}
+
+/** SI-UK-compris-19881 is the unsellable twin of MI-UK-compris-19881. */
+export function kfcCatalogSuffix(objectKey: unknown): string {
+  const m = String(objectKey || '').match(/^(?:MI|SI|MIL)-(.+)$/i);
+  return m ? m[1] : '';
 }
 
 export type ResolvedMealLine = {
@@ -660,7 +707,8 @@ export type ResolvedMealLine = {
  */
 export function resolveMealComponentLines(
   mealComponents: any[],
-  catalog: { id: string; name: string; price: number; description?: string; isCombo?: boolean; atomicUnits?: Record<string, number> }[]
+  catalog: { id: string; name: string; price: number; description?: string; isCombo?: boolean; atomicUnits?: Record<string, number> }[],
+  mealName = ''
 ): {
   components: ResolvedMealLine[];
   equivalentAlaCarteIds: string[];
@@ -1036,23 +1084,18 @@ export function resolveMealComponentLines(
     return { components, equivalentAlaCarteIds, atomicUnits };
   }
 
+  const mealN = normText(mealName);
+
   for (const mc of mealComponents) {
     const slot = String(mc?.name || '');
     if (isFlavourOnlySlot(slot)) continue;
 
-    let pickedName: string | null = null;
-    let singleItemObjectKey: string | undefined;
-    for (const g of mc.componentItemGroups || []) {
-      const cis = g.componentItems || [];
-      const level1 = cis.find((ci: any) => ci?.levelId === 1) || cis[0];
-      if (level1?.name) {
-        pickedName = String(level1.name).trim();
-        if (level1.singleItemObjectKey) {
-          singleItemObjectKey = String(level1.singleItemObjectKey);
-        }
-        break;
-      }
-    }
+    const pick = defaultSlotPick(mc);
+    const pickedName = pick?.name ? String(pick.name).trim() : '';
+    const singleItemObjectKey = pick?.singleItemObjectKey
+      ? String(pick.singleItemObjectKey)
+      : undefined;
+    if (mealN && pickedName && normText(pickedName) === mealN) continue;
     if (!pickedName) continue;
 
     let count = 1;
@@ -1163,7 +1206,7 @@ export function resolveMealComponentLines(
     atomicUnits:
       Object.keys(atomicUnits).length > 0
         ? atomicUnits
-        : extractUnitsFromMealComponents(mealComponents),
+        : extractUnitsFromMealComponents(mealComponents, mealName),
   };
 }
 

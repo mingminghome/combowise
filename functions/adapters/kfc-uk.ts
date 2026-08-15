@@ -16,6 +16,8 @@ import {
   extractUnitsFromMealComponents,
   resolveMealComponentLines,
   resolveKfcItemPrice,
+  isKfcSizeChooserMeal,
+  kfcCatalogSuffix,
   buildFieldBlob,
   classifyRole,
   fuzz,
@@ -219,8 +221,22 @@ function normalizeKfcMenu(raw: any, brandName: string) {
     return am - bm;
   });
 
+  const mealSuffixes = new Set<string>();
   for (const rawItem of rawItems) {
-    // Meals store price on levels[] (website basket uses the same payload — no 2nd fetch)
+    if (rawItem?.type !== 'Meal') continue;
+    const suffix = kfcCatalogSuffix(rawItem.objectKey);
+    if (suffix) mealSuffixes.add(suffix);
+  }
+
+  for (const rawItem of rawItems) {
+    // Size-picker shells — 6pc / 10pc children are the real basket SKUs
+    if (isKfcSizeChooserMeal(rawItem)) continue;
+    // SI twin of a Meal (same compris id) is the unsellable builder stub
+    if (rawItem?.type !== 'Meal') {
+      const suffix = kfcCatalogSuffix(rawItem.objectKey);
+      if (suffix && mealSuffixes.has(suffix)) continue;
+    }
+    // Meals: levels[] is food-only; drink/side extras live on slot option prices
     const price = resolveKfcItemPrice(rawItem);
     if (price <= 0) continue;
     // objectKey is unique per Meal/Single; posItemId collides across types
@@ -277,7 +293,7 @@ function normalizeKfcMenu(raw: any, brandName: string) {
           ? `https://assets.kfcapi.com/fit-in/300x300/${rawItem.imagePath}`
           : undefined,
         isCombo: true,
-        atomicUnits: extractUnitsFromMealComponents(rawItem.mealComponents),
+        atomicUnits: extractUnitsFromMealComponents(rawItem.mealComponents, rawName),
         _source: 'mealComponents',
         _mealComponents: rawItem.mealComponents,
         _productId: productId,
@@ -331,7 +347,7 @@ function normalizeKfcMenu(raw: any, brandName: string) {
   const catalog = items.filter((i) => i.price > 0);
   for (const item of items) {
     if (!item._mealComponents) continue;
-    const resolved = resolveMealComponentLines(item._mealComponents, catalog);
+    const resolved = resolveMealComponentLines(item._mealComponents, catalog, item.name);
     if (resolved.components.length) {
       item.components = resolved.components.map((c) => ({
         itemId: c.itemId || '',
@@ -349,7 +365,7 @@ function normalizeKfcMenu(raw: any, brandName: string) {
     if (Object.keys(resolved.atomicUnits).length) {
       item.atomicUnits = resolved.atomicUnits;
     } else if (!Object.keys(item.atomicUnits || {}).length) {
-      item.atomicUnits = extractUnitsFromMealComponents(item._mealComponents);
+      item.atomicUnits = extractUnitsFromMealComponents(item._mealComponents, item.name);
     }
     delete item._mealComponents;
   }
