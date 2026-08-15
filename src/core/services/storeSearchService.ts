@@ -33,6 +33,7 @@ export class StoreSearchService {
   private static loadGeneration: Map<string, number> = new Map();
   private static inflight: Map<string, Promise<StoreLocation[]>> = new Map();
   private static subscribers: Set<() => void> = new Set();
+  private static lastError: Map<string, string> = new Map();
 
   static subscribe(callback: () => void): () => void {
     this.subscribers.add(callback);
@@ -82,6 +83,10 @@ export class StoreSearchService {
 
   static hasStores(providerId: string): boolean {
     return this.getStoresForProvider(providerId).length > 0;
+  }
+
+  static getLastError(providerId: string): string | null {
+    return this.lastError.get(providerId) || null;
   }
 
   static hasFreshStoresCache(providerId: string): boolean {
@@ -141,13 +146,23 @@ export class StoreSearchService {
       }
 
       if (!response.ok) {
-        console.info(`Store list fetch failed for ${providerId}: HTTP ${response.status}`);
+        let detail = `HTTP ${response.status}`;
+        try {
+          const err = (await response.json()) as { message?: string; error?: string };
+          if (err?.message) detail = err.message;
+          else if (err?.error) detail = String(err.error);
+        } catch {
+          /* body is not JSON */
+        }
+        this.lastError.set(providerId, detail);
+        console.info(`Store list fetch failed for ${providerId}: ${detail}`);
         return this.getStoresForProvider(providerId);
       }
 
       const raw = await response.json();
       const stores = this.normalizeStoresPayload(raw);
       if (stores.length === 0) {
+        this.lastError.set(providerId, 'Store directory was empty');
         return this.getStoresForProvider(providerId);
       }
 
@@ -155,10 +170,18 @@ export class StoreSearchService {
         return this.getStoresForProvider(providerId);
       }
 
+      this.lastError.delete(providerId);
       this.saveStoresCache(providerId, stores);
       return stores;
     } catch (e) {
       const name = e instanceof Error ? e.name : '';
+      const msg =
+        name === 'AbortError'
+          ? 'Store directory timed out'
+          : e instanceof Error
+            ? e.message
+            : 'Store directory unavailable';
+      this.lastError.set(providerId, msg);
       console.info(
         `Store list fetch unavailable for ${providerId}${name === 'AbortError' ? ' (timeout)' : ''}`
       );

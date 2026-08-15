@@ -595,7 +595,9 @@ export const StoreSearchBar: React.FC<StoreSearchBarProps> = ({
                     : 'No stores in list'
                   : query
                     ? `No store directory loaded — cannot search "${query}". Retry or run with live API (npm run dev / Pages).`
-                    : 'Loading stores…'}
+                    : StoreSearchService.getLastError(providerId)
+                      ? `Could not load stores: ${StoreSearchService.getLastError(providerId)}`
+                      : 'Loading stores…'}
                 {!StoreSearchService.hasStores(providerId) && (
                   <div style={{ marginTop: '0.75rem' }}>
                     <button

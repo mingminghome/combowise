@@ -24,23 +24,90 @@ import {
 
 const DEFAULT_KFC_API_BASE = 'https://prod.kfcapi.com/api/v3';
 const DEFAULT_MENU_OUTPUT = 'https://menuoutput.prod.platform.kfcapi.com';
+const DEFAULT_KFC_SITE = 'https://www.kfc.co.uk';
+const PUBLIC_KEY_TTL_MS = 6 * 60 * 60 * 1000;
+const DISCOVER_TIMEOUT_MS = 5000;
 
-/** Public SPA client key must come from env (not committed). See .env.example. */
-function resolveKfcApiKey(env: LiveEnv): string {
-  const key = String(env.KFC_API_KEY || '').trim();
-  if (!key) {
-    throw new Error(
-      'KFC_API_KEY is not set. Add it to Cloudflare Pages env / .dev.vars / shell. ' +
-        'Tip: open kfc.co.uk order-online, DevTools → Network, copy request header x-api-key.',
-    );
+/**
+ * Public SPA client key from kfc.co.uk Next.js `runtimeConfig.API_KEY`.
+ * Not a private credential — the official site sends this as `x-api-key` on every
+ * order-online request. Env `KFC_API_KEY` still wins; this is the no-config fallback
+ * so the store picker works when Pages env is empty or the site key was rotated.
+ */
+const FALLBACK_PUBLIC_SPA_KEY = 'siYAzKattmaIHSwMV9OJYtaoP8SRq';
+
+/** Discovered (or fallback) public SPA `x-api-key`. */
+let publicKeyCache: { key: string; fetchedAt: number } | null = null;
+
+function extractPublicKfcApiKey(html: string): string {
+  const nextMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (nextMatch) {
+    try {
+      const data = JSON.parse(nextMatch[1]) as { runtimeConfig?: { API_KEY?: unknown } };
+      const key = String(data.runtimeConfig?.API_KEY || '').trim();
+      if (key) return key;
+    } catch {
+      /* challenge page / truncated HTML */
+    }
   }
-  return key;
+  const loose = html.match(/"API_KEY"\s*:\s*"([^"]+)"/);
+  return String(loose?.[1] || '').trim();
 }
 
-function kfcHeaders(env: LiveEnv): HeadersInit {
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Scrape the live SPA key. kfc.co.uk often stalls on HTTP/2 — keep this bounded. */
+async function fetchPublicKfcApiKey(): Promise<string> {
+  if (publicKeyCache && Date.now() - publicKeyCache.fetchedAt < PUBLIC_KEY_TTL_MS) {
+    return publicKeyCache.key;
+  }
+  const pages = [`${DEFAULT_KFC_SITE}/`, `${DEFAULT_KFC_SITE}/order-online/choose-your-food`];
+  for (const url of pages) {
+    try {
+      const res = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            Accept: 'text/html,application/xhtml+xml',
+            'User-Agent': 'Mozilla/5.0 (compatible; ComboWise/1.0; +https://combowise.pages.dev)',
+          },
+        },
+        DISCOVER_TIMEOUT_MS,
+      );
+      const key = extractPublicKfcApiKey(await res.text());
+      if (key) {
+        publicKeyCache = { key, fetchedAt: Date.now() };
+        return key;
+      }
+    } catch {
+      /* timeout / network — try next page or fall back */
+    }
+  }
+  publicKeyCache = { key: FALLBACK_PUBLIC_SPA_KEY, fetchedAt: Date.now() };
+  return FALLBACK_PUBLIC_SPA_KEY;
+}
+
+function resolveKfcApiKey(env: LiveEnv): string {
+  const key = String(env.KFC_API_KEY || '').trim();
+  if (key) return key;
+  if (publicKeyCache && Date.now() - publicKeyCache.fetchedAt < PUBLIC_KEY_TTL_MS) {
+    return publicKeyCache.key;
+  }
+  return FALLBACK_PUBLIC_SPA_KEY;
+}
+
+function kfcHeaders(env: LiveEnv, apiKey?: string): Record<string, string> {
   return {
     Accept: 'application/json',
-    'x-api-key': resolveKfcApiKey(env),
+    'x-api-key': apiKey || resolveKfcApiKey(env),
     codemarket: 'UK',
     countrycode: 'GB',
     langcode: 'en',
@@ -48,6 +115,19 @@ function kfcHeaders(env: LiveEnv): HeadersInit {
     Referer: 'https://www.kfc.co.uk/order-online/choose-your-food',
     Origin: 'https://www.kfc.co.uk',
   };
+}
+
+/** Call KFC v3; on 401/403 rediscover the public SPA key (they rotate it). */
+async function kfcApiFetch(env: LiveEnv, url: string, init: RequestInit = {}): Promise<Response> {
+  const extra = (init.headers as Record<string, string> | undefined) || {};
+  const used = resolveKfcApiKey(env);
+  const res = await fetch(url, { ...init, headers: { ...kfcHeaders(env, used), ...extra } });
+  if (res.status !== 401 && res.status !== 403) return res;
+
+  publicKeyCache = null;
+  const discovered = await fetchPublicKfcApiKey();
+  if (!discovered || discovered === used) return res;
+  return fetch(url, { ...init, headers: { ...kfcHeaders(env, discovered), ...extra } });
 }
 
 /** Collapse KFC POS twins (same productId / same name+price / LE meal variants). */
@@ -354,14 +434,29 @@ function normalizeKfcMenu(raw: any, brandName: string) {
   };
 }
 
+function asStoreList(raw: unknown): any[] {
+  if (Array.isArray(raw)) return raw;
+  if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>;
+    for (const k of ['restaurants', 'stores', 'data', 'items', 'results']) {
+      if (Array.isArray(o[k])) return o[k] as any[];
+    }
+    if (o.data && typeof o.data === 'object') return asStoreList(o.data);
+  }
+  return [];
+}
+
 function mapStore(r: any) {
-  const refid = String(r.refid || '');
+  if (!r || typeof r !== 'object') return null;
+  const refid = String(r.refid || r.storeId || r.storeid || r.id || '').trim();
   if (!refid) return null;
-  const name = String(r.name || '').trim();
-  if (/do not use/i.test(name)) return null;
-  if (r.status && r.status !== 'available') return null;
-  const city = String(r.city || '');
-  const street = String(r.street || '');
+  const name = String(r.name || r.restaurantName || r.storeName || '').trim();
+  if (/do not use|\bLAB_|digital lab|kiosk lab|\bdv lab\b/i.test(name)) return null;
+  const status = String(r.status || 'available').toLowerCase();
+  if (status && !['available', 'open', 'active', 'online'].includes(status)) return null;
+  const city = String(r.city || r.town || '');
+  const street = String(r.street || r.address || r.address1 || r.line1 || '');
+  const geo = r.geolocation || r.geoLocation || r.location || {};
   let tierId = 'standard';
   if (/london/i.test(city + name)) tierId = 'london_central';
   if (/airport|services|motorway/i.test(name + street)) tierId = 'highway_travel';
@@ -370,9 +465,9 @@ function mapStore(r: any) {
     name: name.startsWith('KFC') ? name : `KFC ${name}`,
     address: street,
     city,
-    postcode: String(r.postalcode || ''),
-    latitude: r.geolocation?.latitude,
-    longitude: r.geolocation?.longitude,
+    postcode: String(r.postalcode || r.postcode || r.postalCode || ''),
+    latitude: geo.latitude ?? geo.lat ?? r.latitude ?? r.lat,
+    longitude: geo.longitude ?? geo.lng ?? geo.lon ?? r.longitude ?? r.lng,
     tierId,
     isAppMenuAvailable: true,
   };
@@ -381,7 +476,7 @@ function mapStore(r: any) {
 export async function fetchKfcMenu(env: LiveEnv, storeId: string) {
   const base = (env.KFC_API_BASE || DEFAULT_KFC_API_BASE).replace(/\/$/, '');
   const metaUrl = `${base}/restaurants/${encodeURIComponent(storeId)}/menu?modeType=ClickAndCollect&serviceType=collection`;
-  const metaRes = await fetch(metaUrl, { headers: kfcHeaders(env) });
+  const metaRes = await kfcApiFetch(env, metaUrl);
   if (!metaRes.ok) {
     throw new Error(`KFC menu meta HTTP ${metaRes.status} for store ${storeId}`);
   }
@@ -417,10 +512,14 @@ export async function fetchKfcMenu(env: LiveEnv, storeId: string) {
 
 export async function fetchKfcStores(env: LiveEnv, q: string) {
   const base = (env.KFC_API_BASE || DEFAULT_KFC_API_BASE).replace(/\/$/, '');
-  const res = await fetch(`${base}/restaurants/all`, { headers: kfcHeaders(env) });
+  // Official SPA now calls /restaurants/all?codemarket=UK (bare /all still works today).
+  let res = await kfcApiFetch(env, `${base}/restaurants/all?codemarket=UK`);
+  if (res.status === 404) {
+    res = await kfcApiFetch(env, `${base}/restaurants/all`);
+  }
   if (!res.ok) throw new Error(`KFC stores HTTP ${res.status}`);
-  const raw = (await res.json()) as any[];
-  let stores = (Array.isArray(raw) ? raw : []).map(mapStore).filter(Boolean) as any[];
+  const raw = await res.json();
+  let stores = asStoreList(raw).map(mapStore).filter(Boolean) as any[];
 
   if (q.trim()) {
     const qq = q.replace(/\s+/g, '').toLowerCase();
