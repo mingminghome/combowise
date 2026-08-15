@@ -16,9 +16,10 @@ import {
   extractUnitsFromMealComponents,
   resolveMealComponentLines,
   resolveKfcItemPrice,
-  isKfcSizeChooserMeal,
   isKfcAddonStub,
   isKfcCampaignOffer,
+  hasKfcBrowseCategory,
+  expandKfcSizeVariants,
   kfcCatalogSuffix,
   buildFieldBlob,
   classifyRole,
@@ -225,23 +226,26 @@ function normalizeKfcMenu(raw: any, brandName: string) {
 
   const mealSuffixes = new Set<string>();
   for (const rawItem of rawItems) {
-    if (rawItem?.type !== 'Meal') continue;
+    if (rawItem?.type !== 'Meal' || !hasKfcBrowseCategory(rawItem)) continue;
     const suffix = kfcCatalogSuffix(rawItem.objectKey);
     if (suffix) mealSuffixes.add(suffix);
   }
 
+  const aisleItems: any[] = [];
   for (const rawItem of rawItems) {
-    // Size-picker shells — 6pc / 10pc children are the real basket SKUs
-    if (isKfcSizeChooserMeal(rawItem)) continue;
-    // “8 H/WINGS ADDN” etc. — meal extras, not Just Chicken aisle packs
+    // Per-store aisle: only what KFC put in a browse category for this shop.
+    // Campaign cards, ADDN extras, and POS twins usually have no categoryId.
+    if (!hasKfcBrowseCategory(rawItem)) continue;
     if (isKfcAddonStub(rawItem)) continue;
-    // “for £7.99” / POS LM·DEAL — website campaign cards, not in the app aisle
     if (isKfcCampaignOffer(rawItem)) continue;
-    // SI twin of a Meal (same compris id) is the unsellable builder stub
     if (rawItem?.type !== 'Meal') {
       const suffix = kfcCatalogSuffix(rawItem.objectKey);
       if (suffix && mealSuffixes.has(suffix)) continue;
     }
+    aisleItems.push(...expandKfcSizeVariants(rawItem));
+  }
+
+  for (const rawItem of aisleItems) {
     // Meals: levels[] is food-only; drink/side extras live on slot option prices
     const price = resolveKfcItemPrice(rawItem);
     if (price <= 0) continue;

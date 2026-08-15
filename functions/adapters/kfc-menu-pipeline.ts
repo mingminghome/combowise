@@ -588,6 +588,18 @@ function isFlavourOnlySlot(slotName: string): boolean {
   );
 }
 
+/** “Your main order” restating the box-meal title — protein comes from the size slot. */
+function isWrapperMainPick(slotName: string, pickedName: string, mealName: string): boolean {
+  if (!/your main order/i.test(slotName)) return false;
+  const pickN = normText(pickedName);
+  const mealN = normText(mealName);
+  if (!pickN) return false;
+  if (pickN === mealN) return true;
+  if (mealN.includes(pickN) && /box meal|bucket|banquet/.test(pickN)) return true;
+  if (/box meal/.test(pickN) && !/^\d+/.test(pickN)) return true;
+  return false;
+}
+
 /**
  * Walk KFC `mealComponents` (same structure the website uses for “add to basket”).
  * Each slot’s default level-1 option is included — e.g. Bargain Bucket:
@@ -616,8 +628,7 @@ export function extractUnitsFromMealComponents(
 
     const pick = defaultSlotPick(mc);
     const pickedName = pick?.name ? String(pick.name) : '';
-    // Wrapper “Your main order” that just restates the meal name
-    if (mealN && pickedName && normText(pickedName) === mealN) continue;
+    if (isWrapperMainPick(slotName, pickedName, mealName)) continue;
     if (!pickedName) continue;
 
     let partial = extractAtomicUnits(pickedName, '', '');
@@ -684,6 +695,59 @@ export function isKfcSizeChooserMeal(rawItem: any): boolean {
   const mcs = rawItem?.mealComponents;
   if (!Array.isArray(mcs)) return false;
   return mcs.some((mc: any) => /choose your size/i.test(String(mc?.name || '')));
+}
+
+/** On the store’s app/website aisle — campaign/POS stubs usually have no categoryId. */
+export function hasKfcBrowseCategory(rawItem: any): boolean {
+  const id = rawItem?.categoryId;
+  return id != null && String(id).trim() !== '' && !Number.isNaN(Number(id));
+}
+
+function nameWithSize(parentName: string, sizeName: string): string {
+  const flame = /🔥/.test(parentName) || /🔥/.test(sizeName);
+  const parent = parentName.replace(/🔥/g, '').trim();
+  const size = sizeName.replace(/🔥/g, '').trim();
+  const sizeWord = size.match(/^(regular|large)\b/i);
+  if (sizeWord) {
+    return `${parent}: ${sizeWord[1]}${flame ? ' 🔥' : ''}`;
+  }
+  if (/box meal/i.test(parent)) {
+    if (/^\d+\s+/.test(size)) return `${size} Box Meal${flame ? '🔥' : ''}`;
+    const pc = size.match(/(\d+)\s*pc/i);
+    if (pc) return `${parent}: ${pc[1]} PC${flame ? ' 🔥' : ''}`;
+  }
+  return `${parent}: ${size}${flame ? ' 🔥' : ''}`;
+}
+
+/**
+ * Aisle box meals are one card with a size slot. Emit one row per size so
+ * ComboWise can price 6pc vs 10pc without using uncategorized BXML children.
+ */
+export function expandKfcSizeVariants(rawItem: any): any[] {
+  if (!isKfcSizeChooserMeal(rawItem)) return [rawItem];
+  const mcs = Array.isArray(rawItem.mealComponents) ? rawItem.mealComponents : [];
+  const sizeSlot = mcs.find((mc: any) => /choose your size/i.test(String(mc?.name || '')));
+  const groups = sizeSlot?.componentItemGroups;
+  if (!Array.isArray(groups) || !groups.length) return [rawItem];
+
+  const variants: any[] = [];
+  for (const g of groups) {
+    const pick = defaultSlotPick({ componentItemGroups: [g] });
+    const sizeName = pick?.name ? String(pick.name).trim() : '';
+    if (!pick || !sizeName) continue;
+    variants.push({
+      ...rawItem,
+      objectKey: `${rawItem.objectKey}__sz_${pick.objectKey || sizeName}`,
+      productId:
+        rawItem.productId != null ? `${rawItem.productId}__${pick.objectKey || sizeName}` : rawItem.productId,
+      name: nameWithSize(String(rawItem.name || ''), sizeName),
+      mealComponents: mcs.map((mc: any) => {
+        if (!/choose your size/i.test(String(mc?.name || ''))) return mc;
+        return { ...mc, componentItemGroups: [{ ...g, componentItems: [pick] }] };
+      }),
+    });
+  }
+  return variants.length ? variants : [rawItem];
 }
 
 /** SI-UK-compris-19881 is the unsellable twin of MI-UK-compris-19881. */
@@ -1129,7 +1193,7 @@ export function resolveMealComponentLines(
     const singleItemObjectKey = pick?.singleItemObjectKey
       ? String(pick.singleItemObjectKey)
       : undefined;
-    if (mealN && pickedName && normText(pickedName) === mealN) continue;
+    if (isWrapperMainPick(slot, pickedName, mealName)) continue;
     if (!pickedName) continue;
 
     let count = 1;
