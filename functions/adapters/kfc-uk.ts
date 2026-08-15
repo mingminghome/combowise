@@ -17,6 +17,7 @@ import {
   resolveMealComponentLines,
   resolveKfcItemPrice,
   isKfcSizeChooserMeal,
+  isKfcAddonStub,
   kfcCatalogSuffix,
   buildFieldBlob,
   classifyRole,
@@ -231,6 +232,8 @@ function normalizeKfcMenu(raw: any, brandName: string) {
   for (const rawItem of rawItems) {
     // Size-picker shells — 6pc / 10pc children are the real basket SKUs
     if (isKfcSizeChooserMeal(rawItem)) continue;
+    // “8 H/WINGS ADDN” etc. — meal extras, not Just Chicken aisle packs
+    if (isKfcAddonStub(rawItem)) continue;
     // SI twin of a Meal (same compris id) is the unsellable builder stub
     if (rawItem?.type !== 'Meal') {
       const suffix = kfcCatalogSuffix(rawItem.objectKey);

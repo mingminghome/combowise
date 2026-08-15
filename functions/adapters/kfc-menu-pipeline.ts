@@ -692,6 +692,23 @@ export function kfcCatalogSuffix(objectKey: unknown): string {
   return m ? m[1] : '';
 }
 
+/**
+ * Meal add-on / upsell stubs — not in the app browse aisle.
+ * e.g. “8 H/WINGS ADDN” £4, “4 TENDR ADDON”, “EXTRA 4PC O/R”.
+ * Real street wings are 2 SINGLE WINGS / 3 SINGLE WINGS / 12 HOTWING BKT.
+ */
+export function isKfcAddonStub(rawItem: any): boolean {
+  if (rawItem?.type === 'Meal') return false;
+  const pos = String(rawItem?.posName || '');
+  const name = String(rawItem?.name || '');
+  if (/\bADDN\b|\bADDONS?\b|\bADD-ONS?\b/i.test(pos)) return true;
+  if (/^EXTRA\b|\bEXTRA\s+\d/i.test(pos)) return true;
+  if (/^\s*extra\b/i.test(name) && /\b(piece|tender|wing|fillet|zinger|popcorn)\b/i.test(name)) {
+    return true;
+  }
+  return false;
+}
+
 export type ResolvedMealLine = {
   name: string;
   count: number;
