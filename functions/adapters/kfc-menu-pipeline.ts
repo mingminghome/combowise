@@ -709,6 +709,23 @@ export function isKfcAddonStub(rawItem: any): boolean {
   return false;
 }
 
+/**
+ * Limited-time / website-only campaign SKUs — not in the app browse menu.
+ * POS suffix LM (limited marketing), DEAL lines, or a price baked into the name
+ * (“2 Zinger Burgers & 4 Hot Wings for £7.99”, “20 Hot Wings for £7.99”).
+ * Regular Mighty Bucket / Bargain Bucket / 10 Tenders Bucket stay.
+ */
+export function isKfcCampaignOffer(rawItem: any): boolean {
+  const pos = String(rawItem?.posName || '');
+  const name = String(rawItem?.name || '');
+  if (/\bLM\b/.test(pos)) return true;
+  if (/\bDEAL\b/.test(pos)) return true;
+  if (/for\s*(just\s*)?(£\s*)?\d+(\.\d+)?/i.test(name)) return true;
+  if (/\boffer\b/i.test(name)) return true;
+  if (/your first\b/i.test(name)) return true;
+  return false;
+}
+
 export type ResolvedMealLine = {
   name: string;
   count: number;

@@ -18,6 +18,7 @@ import {
   resolveKfcItemPrice,
   isKfcSizeChooserMeal,
   isKfcAddonStub,
+  isKfcCampaignOffer,
   kfcCatalogSuffix,
   buildFieldBlob,
   classifyRole,
@@ -234,6 +235,8 @@ function normalizeKfcMenu(raw: any, brandName: string) {
     if (isKfcSizeChooserMeal(rawItem)) continue;
     // “8 H/WINGS ADDN” etc. — meal extras, not Just Chicken aisle packs
     if (isKfcAddonStub(rawItem)) continue;
+    // “for £7.99” / POS LM·DEAL — website campaign cards, not in the app aisle
+    if (isKfcCampaignOffer(rawItem)) continue;
     // SI twin of a Meal (same compris id) is the unsellable builder stub
     if (rawItem?.type !== 'Meal') {
       const suffix = kfcCatalogSuffix(rawItem.objectKey);
