@@ -140,59 +140,6 @@ export class BasketOptimizer {
       }
     };
 
-    // 3. Pure countable packs first (wings, tenders, pieces, nuggets, …)
-    //    Min-cost cover — not the old “savings vs fake unit price” greedy.
-    const packableUnitKeys = Object.keys(remainingAtomicUnits).filter((k) => {
-      const packs = purePacksForUnit(allItems, k);
-      return packs.length > 0 && (remainingAtomicUnits[k] || 0) > 0;
-    });
-
-    for (const unitKey of packableUnitKeys) {
-      const need = remainingAtomicUnits[unitKey] || 0;
-      if (need <= 0) continue;
-      const packs = purePacksForUnit(allItems, unitKey);
-      const cover = minCostCoverPacks(need, packs);
-      if (!cover) continue;
-
-      // Only use pack plan if cheaper or equal to buying wishlist lines for this unit
-      let wishlistCostForUnit = 0;
-      Object.entries(rawWishlistCounts).forEach(([itemId, count]) => {
-        const item = allItems.find((i) => i.id === itemId);
-        if (item?.atomicUnits?.[unitKey]) {
-          wishlistCostForUnit += item.price * count;
-        }
-      });
-      wishlistCostForUnit = Math.round(wishlistCostForUnit * 100) / 100;
-
-      // If pack plan is more expensive, keep user's original lines for this unit
-      if (cover.cost > wishlistCostForUnit + 0.009) {
-        Object.entries(rawWishlistCounts).forEach(([itemId, count]) => {
-          const item = allItems.find((i) => i.id === itemId);
-          if (!item?.atomicUnits?.[unitKey]) return;
-          pushStandalone(item, count);
-          const provided = (item.atomicUnits[unitKey] || 0) * count;
-          remainingAtomicUnits[unitKey] = Math.max(
-            0,
-            (remainingAtomicUnits[unitKey] || 0) - provided
-          );
-        });
-        continue;
-      }
-
-      for (const pick of cover.picks) {
-        pushStandalone(pick.item, pick.count);
-      }
-      remainingAtomicUnits[unitKey] = 0;
-    }
-
-    // 4. Multi-unit combos/meals (burger+fries+drink) — only true multi-kind combos
-    const multiCombos = allItems.filter((i) => {
-      if (!i.isCombo || !i.atomicUnits || i.price <= 0) return false;
-      if (isCampaignPricedName(i.name)) return false;
-      const keys = Object.keys(i.atomicUnits);
-      return keys.length > 1;
-    });
-
     const calcAlaCarteValueOfUnits = (units: Record<string, number>): number => {
       let value = 0;
       Object.entries(units).forEach(([unitKey, count]) => {
@@ -214,6 +161,45 @@ export class BasketOptimizer {
       return value;
     };
 
+    const pushCombo = (candidate: MenuItem, unitsProvided: Record<string, number>) => {
+      const existing = bundlesToBuy.find((b) => b.bundleItem.id === candidate.id);
+      if (existing) {
+        existing.count += 1;
+        existing.price = Math.round((existing.price + candidate.price) * 100) / 100;
+        Object.entries(unitsProvided).forEach(([unitKey, reqCount]) => {
+          const row = existing.itemsCovered.find((ic) => ic.itemId === unitKey);
+          if (row) row.count += reqCount;
+          else {
+            existing.itemsCovered.push({
+              itemId: unitKey,
+              name: provider.getUnitDisplayName(unitKey),
+              count: reqCount,
+            });
+          }
+        });
+        return;
+      }
+      bundlesToBuy.push({
+        bundleItem: candidate,
+        count: 1,
+        price: candidate.price,
+        itemsCovered: Object.entries(unitsProvided).map(([unitKey, reqCount]) => ({
+          itemId: unitKey,
+          name: provider.getUnitDisplayName(unitKey),
+          count: reqCount,
+        })),
+      });
+    };
+
+    // 3. Saving meals first. Packs used to run first and zero protein demand, so
+    //    8 wings + fries + drink never became a Hot Wings Meal.
+    const multiCombos = allItems.filter((i) => {
+      if (!i.isCombo || !i.atomicUnits || i.price <= 0) return false;
+      if (isCampaignPricedName(i.name)) return false;
+      const keys = Object.keys(i.atomicUnits);
+      return keys.length > 1;
+    });
+
     const comboCandidates = multiCombos
       .map((candidate) => {
         const unitsProvided = candidate.atomicUnits || {};
@@ -228,53 +214,58 @@ export class BasketOptimizer {
       .sort((a, b) => b.savingsPerBundle - a.savingsPerBundle);
 
     for (const evaluated of comboCandidates) {
-      let canApply = true;
-      while (canApply) {
+      while (true) {
         const fits = Object.entries(evaluated.unitsProvided).every(
           ([unitKey, reqCount]) => (remainingAtomicUnits[unitKey] || 0) >= reqCount
         );
-        if (!fits) {
-          canApply = false;
-          break;
-        }
+        if (!fits) break;
         Object.entries(evaluated.unitsProvided).forEach(([unitKey, reqCount]) => {
           remainingAtomicUnits[unitKey] = (remainingAtomicUnits[unitKey] || 0) - reqCount;
         });
-
-        const existing = bundlesToBuy.find((b) => b.bundleItem.id === evaluated.candidate.id);
-        if (existing) {
-          existing.count += 1;
-          existing.price =
-            Math.round((existing.price + evaluated.candidate.price) * 100) / 100;
-          // Aggregate covered units for display
-          Object.entries(evaluated.unitsProvided).forEach(([unitKey, reqCount]) => {
-            const row = existing.itemsCovered.find((ic) => ic.itemId === unitKey);
-            if (row) row.count += reqCount;
-            else {
-              existing.itemsCovered.push({
-                itemId: unitKey,
-                name: provider.getUnitDisplayName(unitKey),
-                count: reqCount,
-              });
-            }
-          });
-        } else {
-          const itemsCovered: { itemId: string; name: string; count: number }[] = [];
-          Object.entries(evaluated.unitsProvided).forEach(([unitKey, reqCount]) => {
-            itemsCovered.push({
-              itemId: unitKey,
-              name: provider.getUnitDisplayName(unitKey),
-              count: reqCount,
-            });
-          });
-          bundlesToBuy.push({
-            bundleItem: evaluated.candidate,
-            count: 1,
-            price: evaluated.candidate.price,
-            itemsCovered,
-          });
-        }
+        pushCombo(evaluated.candidate, evaluated.unitsProvided);
       }
+    }
+
+    // 4. Leftover countable packs (wings / tenders / pieces)
+    const packableUnitKeys = Object.keys(remainingAtomicUnits).filter((k) => {
+      const packs = purePacksForUnit(allItems, k);
+      return packs.length > 0 && (remainingAtomicUnits[k] || 0) > 0;
+    });
+
+    for (const unitKey of packableUnitKeys) {
+      const need = remainingAtomicUnits[unitKey] || 0;
+      if (need <= 0) continue;
+      const packs = purePacksForUnit(allItems, unitKey);
+      const cover = minCostCoverPacks(need, packs);
+      if (!cover) continue;
+
+      let wishlistCostForUnit = 0;
+      Object.entries(rawWishlistCounts).forEach(([itemId, count]) => {
+        const item = allItems.find((i) => i.id === itemId);
+        if (item?.atomicUnits?.[unitKey]) {
+          wishlistCostForUnit += item.price * count;
+        }
+      });
+      wishlistCostForUnit = Math.round(wishlistCostForUnit * 100) / 100;
+
+      if (cover.cost > wishlistCostForUnit + 0.009 && bundlesToBuy.length === 0) {
+        Object.entries(rawWishlistCounts).forEach(([itemId, count]) => {
+          const item = allItems.find((i) => i.id === itemId);
+          if (!item?.atomicUnits?.[unitKey]) return;
+          pushStandalone(item, count);
+          const provided = (item.atomicUnits[unitKey] || 0) * count;
+          remainingAtomicUnits[unitKey] = Math.max(
+            0,
+            (remainingAtomicUnits[unitKey] || 0) - provided
+          );
+        });
+        continue;
+      }
+
+      for (const pick of cover.picks) {
+        pushStandalone(pick.item, pick.count);
+      }
+      remainingAtomicUnits[unitKey] = 0;
     }
 
     // 5. Leftover units (drinks, sides, opaque SKUs) → standalone
@@ -586,14 +577,90 @@ export class BasketOptimizer {
       }
     }
 
-    // Meal bundle: protein + drink, no fries
-    const proteinKeys = ['chicken_piece', 'boneless_tender', 'chicken_sandwich'] as const;
     const drinkCount =
       (requiredAtomicUnits.drink_reg || 0) +
       (requiredAtomicUnits.drink_lrg || 0) +
       (requiredAtomicUnits.drink_bottle_1_5l || 0);
     const friesCount =
       (requiredAtomicUnits.fries_reg || 0) + (requiredAtomicUnits.fries_lrg || 0);
+
+    // Meal bundle: wings/chicken + fries + drink already in the basket
+    const mealProteinKeys = ['hot_wing', 'chicken_piece', 'boneless_tender'] as const;
+    if (drinkCount >= 1 && friesCount >= 1) {
+      for (const proteinKey of mealProteinKeys) {
+        const proteinCount = requiredAtomicUnits[proteinKey] || 0;
+        if (proteinCount < 1) continue;
+        const meal = allItems
+          .filter((i) => {
+            if (!i.isCombo || !i.atomicUnits || isCampaignPricedName(i.name)) return false;
+            const u = i.atomicUnits;
+            if ((u[proteinKey] || 0) < 1) return false;
+            if ((u[proteinKey] || 0) > proteinCount) return false;
+            if (!(u.fries_reg || u.fries_lrg)) return false;
+            if (!(u.drink_reg || u.drink_lrg || u.drink_bottle_1_5l)) return false;
+            const extraKeys = Object.keys(u).filter(
+              (k) =>
+                k !== proteinKey &&
+                !k.startsWith('fries_') &&
+                !k.startsWith('drink_')
+            );
+            return extraKeys.every((k) => (requiredAtomicUnits[k] || 0) >= (u[k] || 0));
+          })
+          .sort((a, b) => {
+            const pa = a.atomicUnits?.[proteinKey] || 0;
+            const pb = b.atomicUnits?.[proteinKey] || 0;
+            return pb - pa || a.price - b.price;
+          })[0];
+        if (!meal) continue;
+
+        let basketCost = 0;
+        const remove: { action: 'remove'; itemId: string; count: number }[] = [];
+        Object.entries(rawWishlistCounts).forEach(([itemId, count]) => {
+          if (count <= 0) return;
+          const item = allItems.find((i) => i.id === itemId);
+          if (!item?.atomicUnits) return;
+          const u = item.atomicUnits;
+          if (u[proteinKey] || u.fries_reg || u.fries_lrg || u.drink_reg || u.drink_lrg) {
+            basketCost += item.price * count;
+            remove.push({ action: 'remove', itemId, count });
+          }
+        });
+        basketCost = Math.round(basketCost * 100) / 100;
+        const leftoverProtein = Math.max(0, proteinCount - (meal.atomicUnits?.[proteinKey] || 0));
+        const leftoverPacks = leftoverProtein
+          ? minCostCoverPacks(leftoverProtein, purePacksForUnit(allItems, proteinKey))
+          : null;
+        const leftoverCost = leftoverPacks?.cost || 0;
+        const newTotal = Math.round((meal.price + leftoverCost) * 100) / 100;
+        const delta = Math.round((newTotal - basketCost) * 100) / 100;
+        if (delta >= -0.05) continue;
+        recs.push({
+          id: `rec_meal_bundle_${proteinKey}_${meal.id}`,
+          type: 'UPGRADE_TO_MEAL',
+          title: `Bundle into ${meal.name} & Save ${sym}${Math.abs(delta).toFixed(2)}`,
+          description: `Your ${provider.getUnitPpiLabel(proteinKey)}s + fries + drink (${sym}${basketCost.toFixed(2)}) is cheaper as ${meal.name}${
+            leftoverPacks?.picks.length
+              ? ` plus leftover packs`
+              : ''
+          } (${sym}${newTotal.toFixed(2)}).`,
+          priceChange: delta,
+          isSavings: true,
+          itemsToModify: [
+            ...remove,
+            { action: 'add', itemId: meal.id, count: 1 },
+            ...(leftoverPacks?.picks || []).map((p) => ({
+              action: 'add' as const,
+              itemId: p.item.id,
+              count: p.count,
+            })),
+          ],
+        });
+        break;
+      }
+    }
+
+    // Meal bundle: protein + drink, no fries
+    const proteinKeys = ['hot_wing', 'chicken_piece', 'boneless_tender', 'chicken_sandwich'] as const;
 
     if (drinkCount >= 1 && friesCount === 0) {
       for (const proteinKey of proteinKeys) {
