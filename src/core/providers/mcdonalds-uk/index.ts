@@ -26,7 +26,7 @@ const MCD_UK_BRAND = createBrandShell({
     sku_burger: 'burger',
   },
   disclaimer:
-    "McDonald's UK prices are from Just Eat restaurant menus and vary by store. Not official McDonald’s app checkout totals.",
+    "McDonald's UK prices are indicative and vary by store. Not official app checkout totals.",
 });
 
 export class McdonaldsUkProvider extends BaseFastFoodProvider {
@@ -41,7 +41,7 @@ export const plugin: ProviderPlugin = {
   defaultData: MCD_UK_BRAND,
   syncEndpoint: menuEndpoint('mcdonalds_uk'),
   storesEndpoint: storesEndpoint('mcdonalds_uk'),
-  menuStrategy: { fetchOn: 'store' },
+  menuStrategy: { fetchOn: 'provider' },
   normalizer: createPassthroughNormalizer(MCD_UK_BRAND),
 };
 

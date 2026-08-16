@@ -321,8 +321,8 @@ export class StoreSearchService {
     const localHits = rawQ ? this.searchStoresLocal(rawQ, providerId) : stores;
     const postal = rawQ ? PostcodeService.isPostalQuery(rawQ) : false;
 
-    // Postcode-based chains (McD / TH / BK via Just Eat) need ?q= — a hub
-    // seed will not include WA15. Also refetch when the local filter is empty.
+    // Nearby official locators (BK GraphQL) need ?q= for a postcode.
+    // Also refetch when the local filter is empty.
     if (rawQ && (postal || localHits.length === 0)) {
       const remote = await this.fetchStores(providerId, { q: rawQ, merge: true });
       if (remote.length) stores = remote;

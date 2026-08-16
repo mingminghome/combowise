@@ -123,15 +123,28 @@ export const StoreSearchBar: React.FC<StoreSearchBarProps> = ({
     let cancelled = false;
 
     const boot = async () => {
-      // Store list first (online-first) so picker has real directory
-      await StoreSearchService.ensureStoresLoaded(providerId);
-      if (cancelled) return;
-      setMatchingStores(StoreSearchService.searchStoresLocal('', providerId));
+      const loadStores = StoreSearchService.ensureStoresLoaded(providerId).then(() => {
+        if (!cancelled) {
+          setMatchingStores(StoreSearchService.searchStoresLocal('', providerId));
+        }
+      });
 
+      // Store-gated chains wait for the directory. Optional-store chains
+      // (McD / BK / TH) load the menu immediately so a failed locator cannot block.
       if (requiresStore && !selectedStore) {
-        const result = await MenuSyncService.ensureMenuLoaded(providerId, { storeId: null });
-        if (!cancelled) applyMenuResult(result, 'need_store');
-        return;
+        await loadStores;
+        if (cancelled) return;
+        if (
+          MenuSyncService.requiresStoreForMenu(providerId) &&
+          StoreSearchService.hasStores(providerId)
+        ) {
+          const result = await MenuSyncService.ensureMenuLoaded(providerId, { storeId: null });
+          if (!cancelled) applyMenuResult(result, 'need_store');
+          return;
+        }
+        // Directory failed / empty — skip store pick and try the chain menu
+      } else {
+        void loadStores;
       }
 
       const storeId = selectedStore?.id ?? null;

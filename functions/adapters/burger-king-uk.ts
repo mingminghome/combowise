@@ -1,15 +1,13 @@
 /**
- * Burger King UK live adapter.
+ * Burger King UK live adapter — official RBI GraphQL + Sanity + store PLU prices.
  *
- * Stores (fast path): one nearby RBI GraphQL query after postcodes.io.
- * National 13-hub crawl times out on Pages / the 25s client.
- * Fallback: Just Eat UK discovery (same as McD / Tim Hortons).
- *
- * Menu: official Sanity + plusData when storeId is a BK number;
- * Just Eat menu CDN when storeId is a JE uniqueName slug.
+ * Stores: one nearby GetRestaurants query (postcode / GPS), or a few UK hubs.
+ * Menu: Sanity catalogue + gateway plusData. No store → default UK shop prices.
+ * Store pick is optional.
  */
 import type { LiveEnv } from './shared';
-import { fetchJeBrandStores, fetchJeMenuItems, isJeMenuSlug, resolveUkLocation } from './just-eat-uk';
+import type { StoreCoords } from './uk-location';
+import { isUkPostalQuery, resolveUkLocation } from './uk-location';
 import {
   brandMenuShell,
   extractGenericUnits,
@@ -19,11 +17,11 @@ import {
   penceToPounds,
 } from './generic-fastfood';
 
-export type StoreCoords = { lat: number; lng: number };
-
 const BK_GQL = 'https://euc1-prod-bk.rbictg.com/graphql';
 const BK_GATEWAY = 'https://euc1-prod-bk-gateway.rbictg.com/graphql';
 const SANITY = 'https://czqk28jt.api.sanity.io/v2021-10-21/data/query/prod_bk_gb';
+/** Strand — used for national indicative prices when no shop is picked. */
+const DEFAULT_BK_STORE = '33001';
 
 const HUBS: Array<[number, number]> = [
   [51.5074, -0.1278],
@@ -108,10 +106,8 @@ export function mapBkStore(n: BkNode) {
   };
 }
 
-async function fetchNearby(lat: number, lng: number, radiusM = 25000): Promise<BkNode[]> {
-  const data = await gql<{
-    restaurants: { nodes?: BkNode[] };
-  }>(BK_GQL, RESTAURANTS_Q, {
+async function fetchNearby(lat: number, lng: number, radiusM = 40000): Promise<BkNode[]> {
+  const data = await gql<{ restaurants: { nodes?: BkNode[] } }>(BK_GQL, RESTAURANTS_Q, {
     input: {
       first: 50,
       coordinates: { searchRadius: radiusM, userLat: lat, userLng: lng },
@@ -129,41 +125,48 @@ function mappedFromNodes(nodes: BkNode[]) {
   return [...byId.values()];
 }
 
+function filterStores(
+  stores: NonNullable<ReturnType<typeof mapBkStore>>[],
+  q: string
+) {
+  if (!q.trim() || isUkPostalQuery(q)) return stores;
+  const cityKey = q.toLowerCase().replace(/[^a-z]/g, '');
+  if (!cityKey) return stores;
+  const qq = q.replace(/\s+/g, '').toLowerCase();
+  return stores.filter((s) =>
+    [s.id, s.name, s.city, s.postcode, s.address]
+      .map((x) => String(x || '').toLowerCase().replace(/\s+/g, ''))
+      .join(' ')
+      .includes(qq)
+  );
+}
+
 export async function fetchBurgerKingStores(_env: LiveEnv, q: string, coords?: StoreCoords) {
   const loc = await resolveUkLocation(q, coords);
-
   if (loc?.lat != null && loc?.lng != null) {
     try {
-      const stores = mappedFromNodes(await fetchNearby(loc.lat, loc.lng, 40000));
+      const stores = filterStores(mappedFromNodes(await fetchNearby(loc.lat, loc.lng)), q);
       if (stores.length) return { stores, source: 'bk_live', count: stores.length };
     } catch {
-      /* fall through to Just Eat */
+      /* try hubs */
     }
   }
 
-  const je = await fetchJeBrandStores('burger_king', q, coords);
-  if (je.count) return { ...je, source: loc?.lat != null ? 'just_eat' : je.source };
-
-  if (!q.trim() && !coords) {
-    const byId = new Map<string, NonNullable<ReturnType<typeof mapBkStore>>>();
-    const hubs = await Promise.all(
-      HUBS.map(async ([lat, lng]) => {
-        try {
-          return await fetchNearby(lat, lng, 60000);
-        } catch {
-          return [] as BkNode[];
-        }
-      })
-    );
-    for (const nodes of hubs) {
-      for (const s of mappedFromNodes(nodes)) byId.set(s.id, s);
-    }
-    const stores = [...byId.values()];
-    if (stores.length) return { stores, source: 'bk_live', count: stores.length };
-    throw new Error('Could not load Burger King UK stores. Search by postcode (e.g. WA15).');
+  const byId = new Map<string, NonNullable<ReturnType<typeof mapBkStore>>>();
+  const hubs = await Promise.all(
+    HUBS.map(async ([lat, lng]) => {
+      try {
+        return await fetchNearby(lat, lng, 60000);
+      } catch {
+        return [] as BkNode[];
+      }
+    })
+  );
+  for (const nodes of hubs) {
+    for (const s of mappedFromNodes(nodes)) byId.set(s.id, s);
   }
-
-  return { stores: [] as NonNullable<ReturnType<typeof mapBkStore>>[], source: 'bk_empty', count: 0 };
+  const stores = filterStores([...byId.values()], q);
+  return { stores, source: stores.length ? 'bk_live' : 'bk_empty', count: stores.length };
 }
 
 function collectPlus(raw: any): string[] {
@@ -226,29 +229,16 @@ async function plusMap(storeId: string): Promise<Map<string, number>> {
   return map;
 }
 
-function bkMenuShell(storeId: string, items: any[], source: string) {
-  return brandMenuShell({
-    id: 'burger_king_uk',
-    name: 'Burger King UK',
-    accentColor: '#d62300',
-    logoText: 'BK',
-    disclaimer:
-      source === 'just_eat'
-        ? 'Burger King UK prices are from Just Eat restaurant menus and vary by store. Not official app checkout totals.'
-        : 'Burger King UK Click & Collect prices are indicative and vary by store. Not official app checkout totals.',
-    items,
-    extra: { menuVersion: `bk-${storeId}`, _source: { storeId, source } },
-  });
-}
-
-async function fetchOfficialBkMenu(storeId: string) {
+export async function fetchBurgerKingMenu(_env: LiveEnv, storeId: string) {
+  const rawId = storeId.trim();
+  const sid = /^\d+$/.test(rawId) ? rawId : DEFAULT_BK_STORE;
   const [catalog, prices] = await Promise.all([
     sanityQuery<any[]>(
       `*[_type in ["item","combo"] && defined(name)]{
         _id,_type,name,internalName,description,image,vendorConfigs,pluConfigs,showInStaticMenu
       }`
     ),
-    plusMap(storeId.trim()),
+    plusMap(sid),
   ]);
   const seen = new Set<string>();
   const items: any[] = [];
@@ -281,22 +271,19 @@ async function fetchOfficialBkMenu(storeId: string) {
       atomicUnits: extractGenericUnits(name),
     });
   }
-  return items;
-}
-
-export async function fetchBurgerKingMenu(_env: LiveEnv, storeId: string) {
-  const sid = storeId.trim();
-  if (!sid) throw new Error('Pass storeId (BK store number or Just Eat uniqueName)');
-
-  if (isJeMenuSlug(sid)) {
-    const items = await fetchJeMenuItems(sid, 'bk');
-    if (!items.length) throw new Error(`Just Eat menu had no priced items for ${sid}`);
-    return bkMenuShell(sid, items, 'just_eat');
-  }
-
-  const items = await fetchOfficialBkMenu(sid);
   if (!items.length) {
     throw new Error(`BK menu empty for store ${sid} (no priced PLU matches)`);
   }
-  return bkMenuShell(sid, items, 'bk_live');
+  return brandMenuShell({
+    id: 'burger_king_uk',
+    name: 'Burger King UK',
+    accentColor: '#d62300',
+    logoText: 'BK',
+    disclaimer:
+      sid === DEFAULT_BK_STORE && !storeId.trim()
+        ? 'Burger King UK Click & Collect prices are indicative (national sample shop). Pick a store for local prices.'
+        : 'Burger King UK Click & Collect prices are indicative and vary by store. Not official app checkout totals.',
+    items,
+    extra: { menuVersion: `bk-${sid}`, _source: { storeId: sid, source: 'bk_live' } },
+  });
 }

@@ -66,21 +66,19 @@ Live only — no static menu/store JSON in the repo.
 
 ## 3b. McDonald’s / Burger King / Tim Hortons UK
 
-These chains do not publish a usable public pickup catalogue the way KFC / Popeyes do (McD locator empty from Pages, Tim Hortons marketing `/menu` has almost no £, BK national GraphQL crawl times out). ComboWise uses the **Just Eat UK website APIs** (same discovery + menu CDN as just-eat.co.uk) plus a **nearby-only** Burger King RBI query.
+These three are **not store-gated**. Opening the chain loads the menu; the store picker is optional. If the official directory is empty or times out, the app skips store pick and still opens Mode 1 / Mode 2.
 
-| Chain | Stores | Menu | Store `id` |
-|-------|--------|------|------------|
-| McDonald’s UK | Just Eat discovery `…/bypostcode/{postcode}` | Just Eat menu CDN `{uniqueName}_uk_items.json` | JE `uniqueName` |
-| Tim Hortons UK | Same Just Eat discovery | Same Just Eat menu CDN | JE `uniqueName` |
-| Burger King UK | Nearby RBI `GetRestaurants` (one query after postcodes.io) then Just Eat fallback | Official Sanity + `plusData` when id is a BK number; Just Eat CDN when id is a JE slug | BK number **or** JE `uniqueName` |
+| Chain | Stores (optional) | Menu |
+|-------|-------------------|------|
+| McDonald’s UK | OSM Overpass, then official `googleappsv2/geolocation` | Official restaurant JSON when a shop id is known; empty catalogue if the host is blocked |
+| Burger King UK | Nearby RBI `GetRestaurants` (postcode / GPS or a few UK hubs) | Official Sanity `prod_bk_gb` + gateway `plusData` (default shop `33001` when none picked) |
+| Tim Hortons UK | Official `timhortons.co.uk/find-a-tims` HTML | Official `/menu` page when it publishes £ prices |
 
 **Client**
 
-- `GET /api/live/{provider}/stores?q=WA15` — postcode / outcode / city (required for nearby JE results)
+- `GET /api/live/{provider}/menu` — no `storeId` required
+- `GET /api/live/{provider}/stores?q=WA15` — optional nearby list
 - `GET /api/live/{provider}/stores?lat=&lng=` — GPS
-- `GET /api/live/{provider}/menu?storeId=` — JE slug (McD / TH) or BK store number
-
-Without `q` / coords the adapter seeds a few UK hub outcodes (W1, M1, …) so the picker is not empty. Search still sends `?q=` so WA15 resolves nearby shops.
 
 ---
 
@@ -116,10 +114,10 @@ Do not put every chain’s fetch logic in the router file.
 
 | Step | Behaviour |
 |------|-----------|
-| Open chain | Brand shell only (`items: []`) until a shop is picked |
-| Load stores | `GET /api/live/{provider}/stores` |
-| Select shop | `GET /api/live/{provider}/menu?storeId=` |
-| Cache | Per `providerId::storeId` (TTL); Clear wipes all slots |
+| Open chain | KFC / Popeyes: brand shell until a shop is picked. McD / BK / TH: fetch menu immediately (store optional). |
+| Load stores | `GET /api/live/{provider}/stores` (optional for McD / BK / TH) |
+| Select shop | `GET /api/live/{provider}/menu?storeId=` when a shop is chosen |
+| Cache | Per `providerId` or `providerId::storeId` (TTL); Clear wipes all slots |
 
 ```ts
 menuEndpoint('popeyes_uk')   // → /api/live/popeyes_uk/menu
@@ -136,9 +134,9 @@ storesEndpoint('popeyes_uk') // → /api/live/popeyes_uk/stores
 |-------|----------------|
 | KFC UK | **Yes — `KFC_API_KEY`** (not committed; copy `x-api-key` from kfc.co.uk DevTools) |
 | Popeyes UK | No (public ordering API) |
-| McDonald’s UK | No (Just Eat discovery + menu CDN) |
-| Burger King UK | No (nearby RBI GraphQL + Just Eat fallback) |
-| Tim Hortons UK | No (Just Eat discovery + menu CDN) |
+| McDonald’s UK | No (official locator + restaurant JSON; store optional) |
+| Burger King UK | No (nearby RBI GraphQL + Sanity PLU; store optional) |
+| Tim Hortons UK | No (official locator HTML + marketing menu; store optional) |
 
 Optional:
 
@@ -173,8 +171,8 @@ npm run pages:dev
 
 - [ ] Pages Function deployed (`functions/api/live/...`)
 - [ ] Smoke: `/api/live/kfc_uk/stores` and `/api/live/popeyes_uk/stores`  
-- [ ] Smoke: `/api/live/mcdonalds_uk/stores?q=WA15` (and BK / Tim Hortons)  
-- [ ] Smoke: menu with a real `storeId` / Just Eat `uniqueName`  
+- [ ] Smoke: `/api/live/burger_king_uk/menu` (no storeId) and `/api/live/burger_king_uk/stores?q=WA15`  
+- [ ] Smoke: menu with a real `storeId` / slug for store-gated chains  
 
 ---
 

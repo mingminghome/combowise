@@ -41,7 +41,7 @@ export const plugin: ProviderPlugin = {
   defaultData: BK_UK_BRAND,
   syncEndpoint: menuEndpoint('burger_king_uk'),
   storesEndpoint: storesEndpoint('burger_king_uk'),
-  menuStrategy: { fetchOn: 'store' },
+  menuStrategy: { fetchOn: 'provider' },
   normalizer: createPassthroughNormalizer(BK_UK_BRAND),
 };
 

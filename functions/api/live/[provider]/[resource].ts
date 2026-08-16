@@ -89,12 +89,6 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
     }
 
     if (provider === 'mcdonalds_uk' && resource === 'menu') {
-      if (!storeId) {
-        return json(
-          { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName (pick a store after searching by postcode)' },
-          400
-        );
-      }
       return json(await fetchMcdonaldsMenu(context.env, storeId));
     }
     if (provider === 'mcdonalds_uk' && resource === 'stores') {
@@ -102,9 +96,6 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
     }
 
     if (provider === 'burger_king_uk' && resource === 'menu') {
-      if (!storeId) {
-        return json({ error: 'store_required', message: 'Pass storeId=BK store number or Just Eat uniqueName' }, 400);
-      }
       return json(await fetchBurgerKingMenu(context.env, storeId));
     }
     if (provider === 'burger_king_uk' && resource === 'stores') {
@@ -112,12 +103,6 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
     }
 
     if (provider === 'tim_hortons_uk' && resource === 'menu') {
-      if (!storeId) {
-        return json(
-          { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName (pick a store after searching by postcode)' },
-          400
-        );
-      }
       return json(await fetchTimHortonsMenu(context.env, storeId));
     }
     if (provider === 'tim_hortons_uk' && resource === 'stores') {

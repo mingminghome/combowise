@@ -91,12 +91,6 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
     return { status: 200, body: await fetchMcdonaldsStores(env, q, coords) };
   }
   if (provider === 'mcdonalds_uk' && resource === 'menu') {
-    if (!storeId) {
-      return {
-        status: 400,
-        body: { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName' },
-      };
-    }
     return { status: 200, body: await fetchMcdonaldsMenu(env, storeId) };
   }
 
@@ -104,12 +98,6 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
     return { status: 200, body: await fetchBurgerKingStores(env, q, coords) };
   }
   if (provider === 'burger_king_uk' && resource === 'menu') {
-    if (!storeId) {
-      return {
-        status: 400,
-        body: { error: 'store_required', message: 'Pass storeId=BK store number or Just Eat uniqueName' },
-      };
-    }
     return { status: 200, body: await fetchBurgerKingMenu(env, storeId) };
   }
 
@@ -117,12 +105,6 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
     return { status: 200, body: await fetchTimHortonsStores(env, q, coords) };
   }
   if (provider === 'tim_hortons_uk' && resource === 'menu') {
-    if (!storeId) {
-      return {
-        status: 400,
-        body: { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName' },
-      };
-    }
     return { status: 200, body: await fetchTimHortonsMenu(env, storeId) };
   }
 
