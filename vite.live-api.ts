@@ -11,6 +11,9 @@ import type { Plugin } from 'vite';
 import type { LiveEnv } from './functions/adapters/shared.ts';
 import { fetchKfcMenu, fetchKfcStores } from './functions/adapters/kfc-uk.ts';
 import { fetchPopeyesMenu, fetchPopeyesStores } from './functions/adapters/popeyes-uk.ts';
+import { fetchMcdonaldsMenu, fetchMcdonaldsStores } from './functions/adapters/mcdonalds-uk.ts';
+import { fetchBurgerKingMenu, fetchBurgerKingStores } from './functions/adapters/burger-king-uk.ts';
+import { fetchTimHortonsMenu, fetchTimHortonsStores } from './functions/adapters/tim-hortons-uk.ts';
 
 /** Optional env overrides (same names as Pages / wrangler). */
 function liveEnv(): LiveEnv {
@@ -23,6 +26,12 @@ function liveEnv(): LiveEnv {
     POPEYES_API_BASE: process.env.POPEYES_API_BASE,
     POPEYES_MENU_UPSTREAM: process.env.POPEYES_MENU_UPSTREAM,
     POPEYES_STORES_UPSTREAM: process.env.POPEYES_STORES_UPSTREAM,
+    MCD_STORES_UPSTREAM: process.env.MCD_STORES_UPSTREAM,
+    MCD_MENU_UPSTREAM: process.env.MCD_MENU_UPSTREAM,
+    BK_STORES_UPSTREAM: process.env.BK_STORES_UPSTREAM,
+    BK_MENU_UPSTREAM: process.env.BK_MENU_UPSTREAM,
+    TH_STORES_UPSTREAM: process.env.TH_STORES_UPSTREAM,
+    TH_MENU_UPSTREAM: process.env.TH_MENU_UPSTREAM,
   };
 }
 
@@ -72,6 +81,45 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
       };
     }
     return { status: 200, body: await fetchPopeyesMenu(env, storeId) };
+  }
+
+  if (provider === 'mcdonalds_uk' && resource === 'stores') {
+    return { status: 200, body: await fetchMcdonaldsStores(env, q) };
+  }
+  if (provider === 'mcdonalds_uk' && resource === 'menu') {
+    if (!storeId) {
+      return {
+        status: 400,
+        body: { error: 'store_required', message: 'Pass storeId=McDonald’s restaurant number' },
+      };
+    }
+    return { status: 200, body: await fetchMcdonaldsMenu(env, storeId) };
+  }
+
+  if (provider === 'burger_king_uk' && resource === 'stores') {
+    return { status: 200, body: await fetchBurgerKingStores(env, q) };
+  }
+  if (provider === 'burger_king_uk' && resource === 'menu') {
+    if (!storeId) {
+      return {
+        status: 400,
+        body: { error: 'store_required', message: 'Pass storeId=BK store number (e.g. 33001)' },
+      };
+    }
+    return { status: 200, body: await fetchBurgerKingMenu(env, storeId) };
+  }
+
+  if (provider === 'tim_hortons_uk' && resource === 'stores') {
+    return { status: 200, body: await fetchTimHortonsStores(env, q) };
+  }
+  if (provider === 'tim_hortons_uk' && resource === 'menu') {
+    if (!storeId) {
+      return {
+        status: 400,
+        body: { error: 'store_required', message: 'Pass storeId from Tim Hortons locator slug' },
+      };
+    }
+    return { status: 200, body: await fetchTimHortonsMenu(env, storeId) };
   }
 
   return {

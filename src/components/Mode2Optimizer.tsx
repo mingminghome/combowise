@@ -593,7 +593,8 @@ export const Mode2Optimizer: React.FC<Mode2OptimizerProps> = ({ provider, locati
                       // Only surface real value trades (meals / packs), not "remove line to save"
                       if (catId === 'chicken' && (rec.type === 'SWAP_FOR_BUCKET' || rec.type === 'UPGRADE_TO_MEAL' || rec.id.includes('wing') || rec.id.includes('chicken'))) return true;
                       if (catId === 'burgers' && (rec.type === 'UPGRADE_TO_MEAL' || rec.type === 'ADD_SIDE_FOR_MEAL' || rec.id.includes('burger'))) return true;
-                      if (catId === 'sides' && rec.type === 'ADD_SIDE_FOR_MEAL') return true;
+                      if (catId === 'sides' && (rec.type === 'ADD_SIDE_FOR_MEAL' || rec.type === 'UPGRADE_TO_MEAL')) return true;
+                      if (catId === 'drinks' && rec.type === 'UPGRADE_TO_MEAL') return true;
                       return false;
                     });
 

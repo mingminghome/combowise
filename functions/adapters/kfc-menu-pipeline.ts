@@ -365,6 +365,13 @@ function parseUnitsFromText(text: string, nameOnly: string): Record<string, numb
 
   const wing = text.match(/(\d+)\s+(?:[\w'-]+\s+){0,3}wings?\b/);
   if (wing) units.hot_wing = parseInt(wing[1], 10);
+  // “Hot Wings: 3 pc” / “Hot Wings Meal: 6 pc” — number sits after “wings”
+  if (!units.hot_wing) {
+    const wingPc = text.match(
+      /wings?(?:\s+[\w'-]+){0,2}\s+(\d+)\s*(?:pc|pcs|pieces?)\b/
+    );
+    if (wingPc) units.hot_wing = parseInt(wingPc[1], 10);
+  }
 
   const tender = text.match(/(\d+)\s*(?:boneless\s*)?(?:mini\s*)?tenders?/);
   if (tender) units.boneless_tender = parseInt(tender[1], 10);
@@ -613,7 +620,6 @@ export function extractUnitsFromMealComponents(
 ): Record<string, number> {
   const units: Record<string, number> = {};
   if (!Array.isArray(mealComponents)) return units;
-  const mealN = normText(mealName);
 
   const add = (partial: Record<string, number>) => {
     for (const [k, v] of Object.entries(partial)) {
@@ -1181,8 +1187,6 @@ export function resolveMealComponentLines(
   if (!Array.isArray(mealComponents)) {
     return { components, equivalentAlaCarteIds, atomicUnits };
   }
-
-  const mealN = normText(mealName);
 
   for (const mc of mealComponents) {
     const slot = String(mc?.name || '');

@@ -19,6 +19,9 @@ import type { LiveEnv } from '../../../adapters/shared';
 import { cors, json, proxyUpstream } from '../../../adapters/shared';
 import { fetchKfcMenu, fetchKfcStores } from '../../../adapters/kfc-uk';
 import { fetchPopeyesMenu, fetchPopeyesStores } from '../../../adapters/popeyes-uk';
+import { fetchMcdonaldsMenu, fetchMcdonaldsStores } from '../../../adapters/mcdonalds-uk';
+import { fetchBurgerKingMenu, fetchBurgerKingStores } from '../../../adapters/burger-king-uk';
+import { fetchTimHortonsMenu, fetchTimHortonsStores } from '../../../adapters/tim-hortons-uk';
 
 export const onRequestOptions: PagesFunction = async () =>
   new Response(null, { status: 204, headers: cors });
@@ -79,6 +82,36 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
     }
     if (provider === 'popeyes_uk' && resource === 'stores') {
       return json(await fetchPopeyesStores(context.env, q));
+    }
+
+    if (provider === 'mcdonalds_uk' && resource === 'menu') {
+      if (!storeId) {
+        return json({ error: 'store_required', message: 'Pass storeId=McDonald’s restaurant number' }, 400);
+      }
+      return json(await fetchMcdonaldsMenu(context.env, storeId));
+    }
+    if (provider === 'mcdonalds_uk' && resource === 'stores') {
+      return json(await fetchMcdonaldsStores(context.env, q));
+    }
+
+    if (provider === 'burger_king_uk' && resource === 'menu') {
+      if (!storeId) {
+        return json({ error: 'store_required', message: 'Pass storeId=BK store number (e.g. 33001)' }, 400);
+      }
+      return json(await fetchBurgerKingMenu(context.env, storeId));
+    }
+    if (provider === 'burger_king_uk' && resource === 'stores') {
+      return json(await fetchBurgerKingStores(context.env, q));
+    }
+
+    if (provider === 'tim_hortons_uk' && resource === 'menu') {
+      if (!storeId) {
+        return json({ error: 'store_required', message: 'Pass storeId from Tim Hortons locator slug' }, 400);
+      }
+      return json(await fetchTimHortonsMenu(context.env, storeId));
+    }
+    if (provider === 'tim_hortons_uk' && resource === 'stores') {
+      return json(await fetchTimHortonsStores(context.env, q));
     }
 
     return json(

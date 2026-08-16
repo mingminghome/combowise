@@ -106,7 +106,7 @@ export const zhHant: MessageTree = {
       'Android Chrome：使用「安裝應用程式」（或首頁橫幅）。iPhone Safari：分享 → 加入主畫面，獲得全螢幕圖示。',
     disclaimerTitle: '免責聲明',
     disclaimerBody:
-      'ComboWise 為獨立工具，與 KFC、Popeyes 或其他餐廳品牌無關。商標歸其擁有者。品項、價格與供應隨門市與時段變化 — 請以官方 App 下單。',
+      'ComboWise 為獨立工具，與 KFC、Popeyes、McDonald’s、Burger King、Tim Hortons 或其他餐廳品牌無關。商標歸其擁有者。品項、價格與供應隨門市與時段變化 — 請以官方 App 下單。',
     createdBy: '作者',
     contributionsWelcome: '歡迎在 GitHub 貢獻。',
   },

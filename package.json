@@ -3,7 +3,7 @@
   "private": false,
   "version": "0.1.0",
   "license": "MIT",
-  "description": "Fast-food value calculator for UK chains (KFC, Popeyes) — auditor + basket optimiser with live menu proxy",
+  "description": "Fast-food value calculator for UK chains (KFC, Popeyes, McDonald’s, Burger King, Tim Hortons) — auditor + basket optimiser with live menu proxy",
   "repository": {
     "type": "git",
     "url": "https://github.com/mingminghome/combowise.git"
@@ -13,6 +13,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test:optimizer": "npx --yes tsx src/core/engine/optimizer.meals.test.ts",
+    "test:adapters": "npx --yes tsx functions/adapters/new-chains.test.ts",
     "preview": "vite preview",
     "pages:dev": "npm run build && npx --yes wrangler pages dev dist --compatibility-date=2024-09-23"
   },

@@ -64,6 +64,22 @@ Live only — no static menu/store JSON in the repo.
 
 ---
 
+## 3b. McDonald’s / Burger King / Tim Hortons UK
+
+| Chain | Stores | Menu |
+|-------|--------|------|
+| McDonald’s UK | Official `googleappsv2/geolocation` (GB hubs), OSM Overpass fallback | Best-effort restaurant JSON; 502 if no priced items |
+| Burger King UK | RBI `euc1-prod-bk.rbictg.com` `GetRestaurants` | Sanity `prod_bk_gb` items + gateway `plusData` pickup PLUs |
+| Tim Hortons UK | `timhortons.co.uk/find-a-tims` HTML locator | Official `/menu` page when it publishes £ prices |
+
+**Client**
+
+- `GET /api/live/mcdonalds_uk/{stores\|menu}`
+- `GET /api/live/burger_king_uk/{stores\|menu}`
+- `GET /api/live/tim_hortons_uk/{stores\|menu}`
+
+---
+
 ## 4. Architecture
 
 ```
@@ -77,7 +93,9 @@ Cloudflare Pages Function  (thin router)
     │
     ├─ functions/adapters/kfc-uk.ts
     ├─ functions/adapters/popeyes-uk.ts
-    └─ (add functions/adapters/<providerId>.ts per chain)
+    ├─ functions/adapters/mcdonalds-uk.ts
+    ├─ functions/adapters/burger-king-uk.ts
+    └─ functions/adapters/tim-hortons-uk.ts
     │
     │  OR env *_UPSTREAM override
     ▼
@@ -114,6 +132,9 @@ storesEndpoint('popeyes_uk') // → /api/live/popeyes_uk/stores
 |-------|----------------|
 | KFC UK | **Yes — `KFC_API_KEY`** (not committed; copy `x-api-key` from kfc.co.uk DevTools) |
 | Popeyes UK | No (public ordering API) |
+| McDonald’s UK | No (locator + best-effort restaurant JSON) |
+| Burger King UK | No (RBI GraphQL + public Sanity) |
+| Tim Hortons UK | No (locator HTML + official menu page) |
 
 Optional:
 
@@ -124,6 +145,7 @@ Optional:
 | `POPEYES_API_BASE` | Popeyes ordering API host |
 | `KFC_MENU_UPSTREAM` / `KFC_STORES_UPSTREAM` | Bypass KFC adapter |
 | `POPEYES_MENU_UPSTREAM` / `POPEYES_STORES_UPSTREAM` | Bypass Popeyes adapter (`{storeId}` ok) |
+| `MCD_*` / `BK_*` / `TH_*` `_UPSTREAM` | Optional host overrides for the three new chains |
 
 ---
 

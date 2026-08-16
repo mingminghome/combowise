@@ -6,6 +6,19 @@ import { UserRewardsService } from '../services/userRewardsService';
 /** Pure pack for one unit kind (e.g. 2 / 3 / 8 Hot Wings). */
 type PurePack = { item: MenuItem; size: number; price: number };
 
+/** Countable protein — meals may add a few extra pieces if still cheaper than street. */
+const COUNTABLE_PROTEIN_KEYS = new Set([
+  'hot_wing',
+  'boneless_tender',
+  'chicken_piece',
+  'nugget',
+]);
+
+/** Next typical meal size (8 → 10pc), not a family bucket. */
+function maxProteinOvershoot(haveProtein: number): number {
+  return Math.max(4, Math.ceil(haveProtein * 0.5));
+}
+
 /**
  * Min-cost way to cover at least `need` units using pure packs (unbounded knapsack).
  * Allows slight overshoot when a larger pack is cheaper overall.
@@ -224,6 +237,59 @@ export class BasketOptimizer {
         });
         pushCombo(evaluated.candidate, evaluated.unitsProvided);
       }
+    }
+
+    // 3b. Meals that add a few extra protein pieces but still beat street
+    //     (8 Hot Wings + fries + drink → 10pc meal when 6pc is missing).
+    while (true) {
+      const streetNow = calcAlaCarteValueOfUnits(remainingAtomicUnits);
+      if (streetNow <= 0.05) break;
+
+      let best: { candidate: MenuItem; units: Record<string, number>; save: number } | null =
+        null;
+      for (const candidate of multiCombos) {
+        const units = candidate.atomicUnits || {};
+        let extraProtein = 0;
+        let haveProtein = 0;
+        let proteinOverlap = false;
+        let ok = true;
+        for (const [unitKey, reqCount] of Object.entries(units)) {
+          const have = remainingAtomicUnits[unitKey] || 0;
+          if (COUNTABLE_PROTEIN_KEYS.has(unitKey)) {
+            if (have <= 0) {
+              ok = false;
+              break;
+            }
+            proteinOverlap = true;
+            haveProtein += have;
+            if (reqCount > have) extraProtein += reqCount - have;
+          } else if (have < reqCount) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok || !proteinOverlap || extraProtein <= 0) continue;
+        if (extraProtein > maxProteinOvershoot(haveProtein)) continue;
+
+        const leftover: Record<string, number> = {};
+        for (const [unitKey, have] of Object.entries(remainingAtomicUnits)) {
+          const left = have - (units[unitKey] || 0);
+          if (left > 0) leftover[unitKey] = left;
+        }
+        const save = streetNow - (candidate.price + calcAlaCarteValueOfUnits(leftover));
+        if (save <= 0.05) continue;
+        if (!best || save > best.save + 1e-9) {
+          best = { candidate, units, save };
+        }
+      }
+      if (!best) break;
+      for (const [unitKey, reqCount] of Object.entries(best.units)) {
+        remainingAtomicUnits[unitKey] = Math.max(
+          0,
+          (remainingAtomicUnits[unitKey] || 0) - reqCount
+        );
+      }
+      pushCombo(best.candidate, best.units);
     }
 
     // 4. Leftover countable packs (wings / tenders / pieces)
@@ -594,8 +660,10 @@ export class BasketOptimizer {
           .filter((i) => {
             if (!i.isCombo || !i.atomicUnits || isCampaignPricedName(i.name)) return false;
             const u = i.atomicUnits;
-            if ((u[proteinKey] || 0) < 1) return false;
-            if ((u[proteinKey] || 0) > proteinCount) return false;
+            const mealProtein = u[proteinKey] || 0;
+            if (mealProtein < 1) return false;
+            const extraProtein = Math.max(0, mealProtein - proteinCount);
+            if (extraProtein > maxProteinOvershoot(proteinCount)) return false;
             if (!(u.fries_reg || u.fries_lrg)) return false;
             if (!(u.drink_reg || u.drink_lrg || u.drink_bottle_1_5l)) return false;
             const extraKeys = Object.keys(u).filter(
@@ -606,11 +674,17 @@ export class BasketOptimizer {
             );
             return extraKeys.every((k) => (requiredAtomicUnits[k] || 0) >= (u[k] || 0));
           })
-          .sort((a, b) => {
-            const pa = a.atomicUnits?.[proteinKey] || 0;
-            const pb = b.atomicUnits?.[proteinKey] || 0;
-            return pb - pa || a.price - b.price;
-          })[0];
+          .map((i) => {
+            const mealProtein = i.atomicUnits?.[proteinKey] || 0;
+            const leftoverProtein = Math.max(0, proteinCount - mealProtein);
+            const leftoverPacks = leftoverProtein
+              ? minCostCoverPacks(leftoverProtein, purePacksForUnit(allItems, proteinKey))
+              : null;
+            const leftoverCost = leftoverPacks?.cost || 0;
+            const newTotal = Math.round((i.price + leftoverCost) * 100) / 100;
+            return { meal: i, leftoverPacks, leftoverCost, newTotal };
+          })
+          .sort((a, b) => a.newTotal - b.newTotal || a.meal.price - b.meal.price)[0];
         if (!meal) continue;
 
         let basketCost = 0;
@@ -626,28 +700,27 @@ export class BasketOptimizer {
           }
         });
         basketCost = Math.round(basketCost * 100) / 100;
-        const leftoverProtein = Math.max(0, proteinCount - (meal.atomicUnits?.[proteinKey] || 0));
-        const leftoverPacks = leftoverProtein
-          ? minCostCoverPacks(leftoverProtein, purePacksForUnit(allItems, proteinKey))
-          : null;
-        const leftoverCost = leftoverPacks?.cost || 0;
-        const newTotal = Math.round((meal.price + leftoverCost) * 100) / 100;
+        const { leftoverPacks, newTotal } = meal;
+        const mealItem = meal.meal;
+        const extraProtein = Math.max(0, (mealItem.atomicUnits?.[proteinKey] || 0) - proteinCount);
         const delta = Math.round((newTotal - basketCost) * 100) / 100;
         if (delta >= -0.05) continue;
-        recs.push({
-          id: `rec_meal_bundle_${proteinKey}_${meal.id}`,
-          type: 'UPGRADE_TO_MEAL',
-          title: `Bundle into ${meal.name} & Save ${sym}${Math.abs(delta).toFixed(2)}`,
-          description: `Your ${provider.getUnitPpiLabel(proteinKey)}s + fries + drink (${sym}${basketCost.toFixed(2)}) is cheaper as ${meal.name}${
-            leftoverPacks?.picks.length
+        const extraBit =
+          extraProtein > 0
+            ? ` and includes ${extraProtein} extra ${provider.getUnitPpiLabel(proteinKey)}${extraProtein > 1 ? 's' : ''}`
+            : leftoverPacks?.picks.length
               ? ` plus leftover packs`
-              : ''
-          } (${sym}${newTotal.toFixed(2)}).`,
+              : '';
+        recs.push({
+          id: `rec_meal_bundle_${proteinKey}_${mealItem.id}`,
+          type: 'UPGRADE_TO_MEAL',
+          title: `Bundle into ${mealItem.name} & Save ${sym}${Math.abs(delta).toFixed(2)}`,
+          description: `Your ${provider.getUnitPpiLabel(proteinKey)}s + fries + drink (${sym}${basketCost.toFixed(2)}) is cheaper as ${mealItem.name}${extraBit} (${sym}${newTotal.toFixed(2)}).`,
           priceChange: delta,
           isSavings: true,
           itemsToModify: [
             ...remove,
-            { action: 'add', itemId: meal.id, count: 1 },
+            { action: 'add', itemId: mealItem.id, count: 1 },
             ...(leftoverPacks?.picks || []).map((p) => ({
               action: 'add' as const,
               itemId: p.item.id,
