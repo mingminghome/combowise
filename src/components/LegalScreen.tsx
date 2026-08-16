@@ -92,7 +92,7 @@ export const TermsScreen: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         <h2 className="about-section-title">Not affiliated</h2>
         <p className="about-muted">
           ComboWise is an independent tool and is not affiliated with, endorsed by, or partnered
-          with KFC, Popeyes, McDonald’s, Burger King, or any other restaurant brand.
+          with KFC, Popeyes, Burger King, or any other restaurant brand.
           Trademarks belong to their owners.
         </p>
       </section>

@@ -11,7 +11,6 @@ import type { Plugin } from 'vite';
 import type { LiveEnv } from './functions/adapters/shared.ts';
 import { fetchKfcMenu, fetchKfcStores } from './functions/adapters/kfc-uk.ts';
 import { fetchPopeyesMenu, fetchPopeyesStores } from './functions/adapters/popeyes-uk.ts';
-import { fetchMcdonaldsMenu, fetchMcdonaldsStores } from './functions/adapters/mcdonalds-uk.ts';
 import { fetchBurgerKingMenu, fetchBurgerKingStores } from './functions/adapters/burger-king-uk.ts';
 
 /** Optional env overrides (same names as Pages / wrangler). */
@@ -25,8 +24,6 @@ function liveEnv(): LiveEnv {
     POPEYES_API_BASE: process.env.POPEYES_API_BASE,
     POPEYES_MENU_UPSTREAM: process.env.POPEYES_MENU_UPSTREAM,
     POPEYES_STORES_UPSTREAM: process.env.POPEYES_STORES_UPSTREAM,
-    MCD_STORES_UPSTREAM: process.env.MCD_STORES_UPSTREAM,
-    MCD_MENU_UPSTREAM: process.env.MCD_MENU_UPSTREAM,
     BK_STORES_UPSTREAM: process.env.BK_STORES_UPSTREAM,
     BK_MENU_UPSTREAM: process.env.BK_MENU_UPSTREAM,
   };
@@ -82,13 +79,6 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
       };
     }
     return { status: 200, body: await fetchPopeyesMenu(env, storeId) };
-  }
-
-  if (provider === 'mcdonalds_uk' && resource === 'stores') {
-    return { status: 200, body: await fetchMcdonaldsStores(env, q, coords) };
-  }
-  if (provider === 'mcdonalds_uk' && resource === 'menu') {
-    return { status: 200, body: await fetchMcdonaldsMenu(env, storeId) };
   }
 
   if (provider === 'burger_king_uk' && resource === 'stores') {

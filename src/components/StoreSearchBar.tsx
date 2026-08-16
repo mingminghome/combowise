@@ -130,7 +130,7 @@ export const StoreSearchBar: React.FC<StoreSearchBarProps> = ({
       });
 
       // Store-gated chains wait for the directory. Optional-store chains
-      // (McD / BK) load the menu immediately so a failed locator cannot block.
+      // (BK) load the menu immediately so a failed locator cannot block.
       if (requiresStore && !selectedStore) {
         await loadStores;
         if (cancelled) return;

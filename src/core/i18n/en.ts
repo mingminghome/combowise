@@ -115,7 +115,7 @@ export const en: MessageTree = {
       'On Android Chrome, use Install app (or the home banner). On iPhone Safari: Share → Add to Home Screen for a full-screen app icon.',
     disclaimerTitle: 'Disclaimer',
     disclaimerBody:
-      'ComboWise is an independent tool and is not affiliated with KFC, Popeyes, McDonald’s, Burger King, or any other restaurant brand. Trademarks belong to their owners. Menu items, prices, and availability change by store and daypart — use official apps for orders.',
+      'ComboWise is an independent tool and is not affiliated with KFC, Popeyes, Burger King, or any other restaurant brand. Trademarks belong to their owners. Menu items, prices, and availability change by store and daypart — use official apps for orders.',
     createdBy: 'Created by',
     contributionsWelcome: 'Contributions welcome on GitHub.',
   },

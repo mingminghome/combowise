@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-Fast-food **value calculator** for UK chains (KFC, Popeyes, McDonald’s, Burger King): audit a box meal, optimise a basket, and compare PPI — using **live store menus**, not a bundled catalogue.
+Fast-food **value calculator** for UK chains (KFC, Popeyes, Burger King): audit a box meal, optimise a basket, and compare PPI — using **live store menus**, not a bundled catalogue.
 
 **License:** [MIT](./LICENSE)
 
@@ -27,7 +27,7 @@ Useful for:
 
 Menus stay **out of the JS bundle**. After you choose a store, prices load from the live proxy. Data stays in your browser (localStorage); confirm everything in official restaurant apps before ordering.
 
-Unofficial brand APIs can change — the demo is best-effort and independent of KFC, Popeyes, McDonald’s, and Burger King.
+Unofficial brand APIs can change — the demo is best-effort and independent of KFC, Popeyes, and Burger King.
 
 ---
 
@@ -192,7 +192,6 @@ See **[`.env.example`](./.env.example)**. Never commit `.env`, `.env.local`, or 
 
 - **KFC UK** — live adapter (order-online ClickAndCollect); needs `KFC_API_KEY`.  
 - **Popeyes UK** — live adapter (popeyesuk.com Collection menus).  
-- **McDonald’s UK** — live store locator (official geolocation, OSM fallback); menu is best-effort.  
 - **Burger King UK** — live adapter (RBI GraphQL stores + Sanity catalogue + store PLU prices).  
 - Unofficial brand APIs can change; treat as best-effort.  
 - Independent tool: confirm prices in official restaurant apps before ordering.  

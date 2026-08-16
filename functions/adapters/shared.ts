@@ -11,8 +11,6 @@ export type LiveEnv = {
   POPEYES_API_BASE?: string;
   POPEYES_MENU_UPSTREAM?: string;
   POPEYES_STORES_UPSTREAM?: string;
-  MCD_STORES_UPSTREAM?: string;
-  MCD_MENU_UPSTREAM?: string;
   BK_STORES_UPSTREAM?: string;
   BK_MENU_UPSTREAM?: string;
 };

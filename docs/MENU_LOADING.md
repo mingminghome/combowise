@@ -50,7 +50,7 @@ Choose restaurant
 
 - **Store-gated** (`fetchOn: 'store'`, e.g. KFC UK ClickAndCollect): no shop ⇒ **no menu items**. Menu is the same pipeline as  
   `kfc.co.uk/order-online/choose-your-food?refid=…&modeType=ClickAndCollect`.  
-- **Provider-gated** (`fetchOn: 'provider'`, McD / BK): menu loads when the chain opens; shop optional. If the store directory fails, store pick is skipped.  
+- **Provider-gated** (`fetchOn: 'provider'`, BK): menu loads when the chain opens; shop optional. If the store directory fails, store pick is skipped.  
 
 ---
 

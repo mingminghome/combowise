@@ -64,16 +64,13 @@ Live only — no static menu/store JSON in the repo.
 
 ---
 
-## 3b. McDonald’s / Burger King UK
+## 3b. Burger King UK
 
-These two are **not store-gated**. Opening the chain loads the menu; the store picker is optional. If the official directory is empty or times out, the app skips store pick and still opens Mode 1 / Mode 2.
+Burger King is **not store-gated**. Opening the chain loads the menu; the store picker is optional. If the official directory is empty or times out, the app skips store pick and still opens Mode 1 / Mode 2.
 
 | Chain | Stores (optional) | Menu |
 |-------|-------------------|------|
-| McDonald’s UK | OSM Overpass, then official `googleappsv2/geolocation` | Official restaurant JSON when a shop id is known; empty if the host is blocked / unpriced |
 | Burger King UK | Nearby RBI `GetRestaurants` (postcode / GPS or a few UK hubs) | Official Sanity `prod_bk_gb` + gateway `plusData` (default shop `33001` when none picked) |
-
-**McDonald’s app API:** the My McDonald’s UK app talks to GMA (`eu-prod.api.mcd.com` / `us-prod.api.mcd.com`) for stores and priced pickup menus. Those calls need an app client id + guest/user token. Unauthenticated requests return 401; the EU host often times out from Pages. McDonald’s does not publish those credentials, and UK ordering is app-only (not on mcdonalds.com). ComboWise does not ship reverse-engineered app secrets.
 
 **Client**
 
@@ -96,7 +93,6 @@ Cloudflare Pages Function  (thin router)
     │
     ├─ functions/adapters/kfc-uk.ts
     ├─ functions/adapters/popeyes-uk.ts
-    ├─ functions/adapters/mcdonalds-uk.ts
     └─ functions/adapters/burger-king-uk.ts
     │
     │  OR env *_UPSTREAM override
@@ -114,8 +110,8 @@ Do not put every chain’s fetch logic in the router file.
 
 | Step | Behaviour |
 |------|-----------|
-| Open chain | KFC / Popeyes: brand shell until a shop is picked. McD / BK: fetch menu immediately (store optional). |
-| Load stores | `GET /api/live/{provider}/stores` (optional for McD / BK) |
+| Open chain | KFC / Popeyes: brand shell until a shop is picked. BK: fetch menu immediately (store optional). |
+| Load stores | `GET /api/live/{provider}/stores` (optional for BK) |
 | Select shop | `GET /api/live/{provider}/menu?storeId=` when a shop is chosen |
 | Cache | Per `providerId` or `providerId::storeId` (TTL); Clear wipes all slots |
 
@@ -134,7 +130,6 @@ storesEndpoint('popeyes_uk') // → /api/live/popeyes_uk/stores
 |-------|----------------|
 | KFC UK | **Yes — `KFC_API_KEY`** (not committed; copy `x-api-key` from kfc.co.uk DevTools) |
 | Popeyes UK | No (public ordering API) |
-| McDonald’s UK | No (official locator + restaurant JSON; store optional). App GMA API is authenticated — not used. |
 | Burger King UK | No (nearby RBI GraphQL + Sanity PLU; store optional) |
 
 Optional:
@@ -146,7 +141,7 @@ Optional:
 | `POPEYES_API_BASE` | Popeyes ordering API host |
 | `KFC_MENU_UPSTREAM` / `KFC_STORES_UPSTREAM` | Bypass KFC adapter |
 | `POPEYES_MENU_UPSTREAM` / `POPEYES_STORES_UPSTREAM` | Bypass Popeyes adapter (`{storeId}` ok) |
-| `MCD_*` / `BK_*` `_UPSTREAM` | Optional host overrides for McD / BK |
+| `BK_*` `_UPSTREAM` | Optional host overrides for Burger King |
 
 ---
 

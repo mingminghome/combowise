@@ -19,7 +19,6 @@ import type { LiveEnv } from '../../../adapters/shared';
 import { cors, json, proxyUpstream } from '../../../adapters/shared';
 import { fetchKfcMenu, fetchKfcStores } from '../../../adapters/kfc-uk';
 import { fetchPopeyesMenu, fetchPopeyesStores } from '../../../adapters/popeyes-uk';
-import { fetchMcdonaldsMenu, fetchMcdonaldsStores } from '../../../adapters/mcdonalds-uk';
 import { fetchBurgerKingMenu, fetchBurgerKingStores } from '../../../adapters/burger-king-uk';
 
 export const onRequestOptions: PagesFunction = async () =>
@@ -85,13 +84,6 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
     }
     if (provider === 'popeyes_uk' && resource === 'stores') {
       return json(await fetchPopeyesStores(context.env, q));
-    }
-
-    if (provider === 'mcdonalds_uk' && resource === 'menu') {
-      return json(await fetchMcdonaldsMenu(context.env, storeId));
-    }
-    if (provider === 'mcdonalds_uk' && resource === 'stores') {
-      return json(await fetchMcdonaldsStores(context.env, q, coords));
     }
 
     if (provider === 'burger_king_uk' && resource === 'menu') {
