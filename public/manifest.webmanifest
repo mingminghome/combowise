@@ -2,7 +2,7 @@
   "id": "/",
   "name": "ComboWise",
   "short_name": "ComboWise",
-  "description": "Smart basket optimiser for UK fast food — KFC, Popeyes, McDonald’s, Burger King and Tim Hortons live prices.",
+  "description": "Smart basket optimiser for UK fast food — KFC, Popeyes, McDonald’s and Burger King live prices.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

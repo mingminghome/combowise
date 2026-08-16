@@ -13,7 +13,6 @@ import { fetchKfcMenu, fetchKfcStores } from './functions/adapters/kfc-uk.ts';
 import { fetchPopeyesMenu, fetchPopeyesStores } from './functions/adapters/popeyes-uk.ts';
 import { fetchMcdonaldsMenu, fetchMcdonaldsStores } from './functions/adapters/mcdonalds-uk.ts';
 import { fetchBurgerKingMenu, fetchBurgerKingStores } from './functions/adapters/burger-king-uk.ts';
-import { fetchTimHortonsMenu, fetchTimHortonsStores } from './functions/adapters/tim-hortons-uk.ts';
 
 /** Optional env overrides (same names as Pages / wrangler). */
 function liveEnv(): LiveEnv {
@@ -30,8 +29,6 @@ function liveEnv(): LiveEnv {
     MCD_MENU_UPSTREAM: process.env.MCD_MENU_UPSTREAM,
     BK_STORES_UPSTREAM: process.env.BK_STORES_UPSTREAM,
     BK_MENU_UPSTREAM: process.env.BK_MENU_UPSTREAM,
-    TH_STORES_UPSTREAM: process.env.TH_STORES_UPSTREAM,
-    TH_MENU_UPSTREAM: process.env.TH_MENU_UPSTREAM,
   };
 }
 
@@ -99,13 +96,6 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
   }
   if (provider === 'burger_king_uk' && resource === 'menu') {
     return { status: 200, body: await fetchBurgerKingMenu(env, storeId) };
-  }
-
-  if (provider === 'tim_hortons_uk' && resource === 'stores') {
-    return { status: 200, body: await fetchTimHortonsStores(env, q, coords) };
-  }
-  if (provider === 'tim_hortons_uk' && resource === 'menu') {
-    return { status: 200, body: await fetchTimHortonsMenu(env, storeId) };
   }
 
   return {

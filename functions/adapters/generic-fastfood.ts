@@ -40,7 +40,7 @@ export function isComboName(name: string): boolean {
 
 export function mapGenericCategory(name: string, isCombo: boolean): string {
   const n = name.toLowerCase();
-  if (/\b(kid|happy meal|timmie|junior)\b/.test(n)) return 'kids';
+  if (/\b(kid|happy meal|junior)\b/.test(n)) return 'kids';
   if (/\b(share|family|bucket|party|box meal)\b/.test(n)) return isCombo || /\bbox\b/.test(n) ? 'box_meals' : 'buckets';
   if (/\b(nugget|tender|wing|mcnugget|chicken piece|selects)\b/.test(n) && !/\bburger\b/.test(n)) {
     return 'chicken';

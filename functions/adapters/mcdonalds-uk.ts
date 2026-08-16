@@ -1,8 +1,13 @@
 /**
  * McDonald’s UK live adapter — official locator + restaurant JSON only.
  *
+ * The My McDonald’s UK app (GMA / *.api.mcd.com) is authenticated: guest/user
+ * token + app client credentials. Those hosts 401 without keys; the EU edge
+ * often times out from Pages. There is no public unauthenticated pickup-price
+ * feed like KFC / Popeyes. We do not ship reverse-engineered app secrets.
+ *
  * Stores: OSM Overpass, then official googleappsv2 geolocation.
- * Menu: official restaurant JSON when a store id is known.
+ * Menu: official restaurant JSON when a store id is known (usually unpriced).
  * Store pick is optional — empty / failed directory does not block the chain.
  */
 import type { LiveEnv } from './shared';

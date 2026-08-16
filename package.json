@@ -3,7 +3,7 @@
   "private": false,
   "version": "0.1.0",
   "license": "MIT",
-  "description": "Fast-food value calculator for UK chains (KFC, Popeyes, McDonald’s, Burger King, Tim Hortons) — auditor + basket optimiser with live menu proxy",
+  "description": "Fast-food value calculator for UK chains (KFC, Popeyes, McDonald’s, Burger King) — auditor + basket optimiser with live menu proxy",
   "repository": {
     "type": "git",
     "url": "https://github.com/mingminghome/combowise.git"

@@ -21,7 +21,6 @@ import { fetchKfcMenu, fetchKfcStores } from '../../../adapters/kfc-uk';
 import { fetchPopeyesMenu, fetchPopeyesStores } from '../../../adapters/popeyes-uk';
 import { fetchMcdonaldsMenu, fetchMcdonaldsStores } from '../../../adapters/mcdonalds-uk';
 import { fetchBurgerKingMenu, fetchBurgerKingStores } from '../../../adapters/burger-king-uk';
-import { fetchTimHortonsMenu, fetchTimHortonsStores } from '../../../adapters/tim-hortons-uk';
 
 export const onRequestOptions: PagesFunction = async () =>
   new Response(null, { status: 204, headers: cors });
@@ -100,13 +99,6 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
     }
     if (provider === 'burger_king_uk' && resource === 'stores') {
       return json(await fetchBurgerKingStores(context.env, q, coords));
-    }
-
-    if (provider === 'tim_hortons_uk' && resource === 'menu') {
-      return json(await fetchTimHortonsMenu(context.env, storeId));
-    }
-    if (provider === 'tim_hortons_uk' && resource === 'stores') {
-      return json(await fetchTimHortonsStores(context.env, q, coords));
     }
 
     return json(
