@@ -1,51 +1,15 @@
 /**
  * McDonald’s UK live adapter.
  *
- * Stores (in order):
- *   1) Official locator googleappsv2/geolocation (works from many hosts / Pages)
- *   2) OpenStreetMap Overpass (brand=McDonald's in GB) — store id parsed from
- *      official mcdonalds.com/gb location URLs when present
- *
- * Menu: official mcdonalds.com hosts often time out or omit pickup £ prices.
- * Return a 200 brand shell with `items: []` (not 502) so the store picker stays usable.
+ * Official googleappsv2 / Overpass locators are empty or blocked from Pages.
+ * Stores + priced menus come from the Just Eat UK website APIs (same data as
+ * just-eat.co.uk restaurant pages). Store `id` is the JE `uniqueName` slug.
  */
 import type { LiveEnv } from './shared';
-import {
-  brandMenuShell,
-  extractGenericUnits,
-  isComboName,
-  mapGenericCategory,
-  slugId,
-  ukPostcode,
-} from './generic-fastfood';
+import { fetchJeBrandStores, fetchJeMenuItems, isJeMenuSlug } from './just-eat-uk';
+import { brandMenuShell, extractGenericUnits, isComboName, mapGenericCategory, slugId, ukPostcode } from './generic-fastfood';
 
-const MCD_GEO =
-  'https://www.mcdonalds.com/googleappsv2/geolocation?latitude={lat}&longitude={lng}&radius={r}&maxResults=80&country=gb&language=en-gb&showClosed=';
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
-
-const HUBS: Array<[number, number]> = [
-  [51.5074, -0.1278],
-  [53.4808, -2.2426],
-  [52.4862, -1.8904],
-  [55.8642, -4.2518],
-  [54.5973, -5.9301],
-  [51.4816, -3.1791],
-  [53.8008, -1.5491],
-  [54.9783, -1.6178],
-  [53.4084, -2.9916],
-  [55.9533, -3.1883],
-  [51.4545, -2.5879],
-  [50.7184, -3.5339],
-];
-
-function mcdHeaders(): HeadersInit {
-  return {
-    Accept: 'application/json',
-    'User-Agent': 'ComboWise/1.0 (live-menu-proxy)',
-    Referer: 'https://www.mcdonalds.com/gb/en-gb/restaurant-locator.html',
-    Origin: 'https://www.mcdonalds.com',
-  };
-}
+export type StoreCoords = { lat: number; lng: number };
 
 export function mapMcdFeature(f: any) {
   const p = f?.properties || f || {};
@@ -92,81 +56,12 @@ export function mapOsmMcd(el: any) {
   };
 }
 
-async function fetchGoogleAppsHub(lat: number, lng: number): Promise<any[]> {
-  const url = MCD_GEO.replace('{lat}', String(lat)).replace('{lng}', String(lng)).replace('{r}', '90000');
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 4000);
-  try {
-    const res = await fetch(url, { headers: mcdHeaders(), signal: ctrl.signal });
-    if (!res.ok) throw new Error(`McD locator HTTP ${res.status}`);
-    const body = (await res.json()) as { features?: any[] };
-    return Array.isArray(body.features) ? body.features : [];
-  } finally {
-    clearTimeout(t);
+export async function fetchMcdonaldsStores(_env: LiveEnv, q: string, coords?: StoreCoords) {
+  const result = await fetchJeBrandStores('mcdonalds', q, coords);
+  if (result.count === 0 && !q.trim() && !coords) {
+    throw new Error('Could not load McDonald’s UK stores from Just Eat. Search by postcode (e.g. WA15).');
   }
-}
-
-async function fetchOverpassMcd(): Promise<any[]> {
-  const q = `[out:json][timeout:20];area["ISO3166-1"="GB"][admin_level=2];node["brand"="McDonald's"](area);out tags;`;
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), 18000);
-  try {
-    const res = await fetch(OVERPASS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-      body: `data=${encodeURIComponent(q)}`,
-      signal: ctrl.signal,
-    });
-    if (!res.ok) return [];
-    const body = (await res.json()) as { elements?: any[] };
-    return Array.isArray(body.elements) ? body.elements : [];
-  } finally {
-    clearTimeout(t);
-  }
-}
-
-export async function fetchMcdonaldsStores(_env: LiveEnv, q: string) {
-  const byId = new Map<string, NonNullable<ReturnType<typeof mapMcdFeature>>>();
-  let officialOk = false;
-  // OSM first — official googleappsv2 often times out from workers / some ISPs
-  try {
-    const els = await fetchOverpassMcd();
-    for (const el of els) {
-      const s = mapOsmMcd(el);
-      if (s) byId.set(s.id, s);
-    }
-  } catch {
-    /* Overpass may rate-limit */
-  }
-  if (byId.size === 0) {
-    for (const [lat, lng] of HUBS.slice(0, 4)) {
-      try {
-        const feats = await fetchGoogleAppsHub(lat, lng);
-        officialOk = officialOk || feats.length > 0;
-        for (const f of feats) {
-          const s = mapMcdFeature(f);
-          if (s) byId.set(s.id, s);
-        }
-      } catch {
-        /* locator often blocked */
-      }
-    }
-  }
-  let stores = [...byId.values()];
-  if (q.trim()) {
-    const qq = q.replace(/\s+/g, '').toLowerCase();
-    stores = stores.filter((s) =>
-      [s.id, s.name, s.city, s.postcode, s.address]
-        .map((x) => String(x || '').toLowerCase().replace(/\s+/g, ''))
-        .join(' ')
-        .includes(qq)
-    );
-  }
-  return {
-    stores,
-    source: officialOk ? 'mcd_locator' : byId.size ? 'mcd_osm' : 'mcd_empty',
-    count: stores.length,
-  };
+  return result;
 }
 
 export function mcdonaldsMenuCatalogue(storeId: string, items: any[], source: string) {
@@ -177,38 +72,26 @@ export function mcdonaldsMenuCatalogue(storeId: string, items: any[], source: st
     logoText: 'McD',
     disclaimer:
       items.length > 0
-        ? "McDonald's UK prices are indicative and vary by store. Not official app checkout totals."
-        : "McDonald's UK does not publish per-store pickup prices on a public feed we can read. Stores still load; menu stays empty until a priced source is available.",
+        ? "McDonald's UK prices are from Just Eat restaurant menus and vary by store. Not official McDonald’s app checkout totals."
+        : "McDonald's UK menu had no priced items for this store. Pick the shop again or retry.",
     items,
     extra: { menuVersion: `mcd-${storeId}`, _source: { storeId, source } },
   });
 }
 
-/** Best-effort store menu. Unreachable / unpriced → empty catalogue (HTTP 200), never 502. */
 export async function fetchMcdonaldsMenu(_env: LiveEnv, storeId: string) {
-  if (!storeId.trim()) throw new Error('Pass storeId (McDonald’s restaurant number)');
   const sid = storeId.trim().replace(/:(en-GB|gb)$/i, '');
-  const urls = [
-    `https://www.mcdonalds.com/googleappsv2/restaurant/${encodeURIComponent(sid)}?country=gb&language=en-gb`,
-    `https://www.mcdonalds.com/googleappsv2/restaurant/${encodeURIComponent(sid)}:en-GB?country=gb&language=en-gb`,
-    `https://www.mcdonalds.com/gb/en-gb/.rest/restaurant/${encodeURIComponent(sid)}.json`,
-  ];
-  for (const url of urls) {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 5000);
-    try {
-      const res = await fetch(url, { headers: mcdHeaders(), signal: ctrl.signal });
-      if (!res.ok) continue;
-      const raw = await res.json();
-      const items = normalizeMcdMenuItems(raw);
-      if (items.length) return mcdonaldsMenuCatalogue(storeId, items, 'mcd_live');
-    } catch {
-      /* try next host */
-    } finally {
-      clearTimeout(t);
-    }
+  if (!sid) throw new Error('Pass storeId (Just Eat uniqueName, e.g. mcdonalds-baguely-2-manchester)');
+  if (!isJeMenuSlug(sid)) {
+    throw new Error(
+      'This McDonald’s shop id is from an older locator. Search by postcode and pick the store again.'
+    );
   }
-  return mcdonaldsMenuCatalogue(storeId, [], 'mcd_unavailable');
+  const items = await fetchJeMenuItems(sid, 'mcd');
+  if (!items.length) {
+    throw new Error(`Just Eat menu had no priced items for ${sid}`);
+  }
+  return mcdonaldsMenuCatalogue(sid, items, 'just_eat');
 }
 
 export function normalizeMcdMenuItems(raw: any): any[] {

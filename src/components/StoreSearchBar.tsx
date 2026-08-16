@@ -280,9 +280,12 @@ export const StoreSearchBar: React.FC<StoreSearchBarProps> = ({
       }
 
       const { latitude, longitude } = pos.coords;
-      let sorted = StoreSearchService.searchStoresByCoordinates(latitude, longitude, providerId);
+      let sorted = await StoreSearchService.searchStoresByCoordinatesAsync(
+        latitude,
+        longitude,
+        providerId
+      );
 
-      // Empty list → force refresh store directory then retry distance sort
       if (sorted.length === 0) {
         await StoreSearchService.ensureStoresLoaded(providerId, { forceRefresh: true });
         sorted = StoreSearchService.searchStoresByCoordinates(latitude, longitude, providerId);
@@ -594,10 +597,12 @@ export const StoreSearchBar: React.FC<StoreSearchBarProps> = ({
                     ? `No stores found for "${query}"`
                     : 'No stores in list'
                   : query
-                    ? `No store directory loaded — cannot search "${query}". Retry or run with live API (npm run dev / Pages).`
+                    ? StoreSearchService.getLastError(providerId)
+                      ? `Could not search "${query}": ${StoreSearchService.getLastError(providerId)}`
+                      : `No stores found for "${query}". Try a nearby postcode.`
                     : StoreSearchService.getLastError(providerId)
                       ? `Could not load stores: ${StoreSearchService.getLastError(providerId)}`
-                      : 'Loading stores…'}
+                      : 'Search by postcode (e.g. WA15) or use your location.'}
                 {!StoreSearchService.hasStores(providerId) && (
                   <div style={{ marginTop: '0.75rem' }}>
                     <button

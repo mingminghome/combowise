@@ -1,14 +1,13 @@
 /**
  * Tim Hortons UK live adapter.
  *
- * Stores: official locator HTML https://timhortons.co.uk/find-a-tims
- *   (UK Tims is not on the NA RBI restaurant graph.)
- *
- * Menu: official marketing menu has product names but usually no pickup £ prices.
- * Return a 200 brand shell with `items: []` (not 502) so stores still pick.
+ * Official marketing /menu has names but almost no pickup £ prices.
+ * Stores + priced menus come from the Just Eat UK website APIs.
+ * Store `id` is the JE `uniqueName` slug.
  */
 import type { LiveEnv } from './shared';
 import { parsePrice } from './shared';
+import { fetchJeBrandStores, fetchJeMenuItems, isJeMenuSlug } from './just-eat-uk';
 import {
   brandMenuShell,
   extractGenericUnits,
@@ -18,16 +17,7 @@ import {
   ukPostcode,
 } from './generic-fastfood';
 
-const TH_LOCATOR = 'https://timhortons.co.uk/find-a-tims';
-const TH_MENU = 'https://timhortons.co.uk/menu';
-
-function thHeaders(): HeadersInit {
-  return {
-    Accept: 'text/html,application/xhtml+xml',
-    'User-Agent': 'ComboWise/1.0 (live-menu-proxy)',
-    Referer: 'https://timhortons.co.uk/',
-  };
-}
+export type StoreCoords = { lat: number; lng: number };
 
 export function parseThLocatorHtml(html: string) {
   const parts = String(html || '').split('data-module-role="location"').slice(1);
@@ -88,7 +78,6 @@ export function parseThMenuHtml(html: string) {
     });
   };
 
-  // Priced cards if the CMS ever emits them
   const priced = html.matchAll(
     /alt="([^"]+)"[^>]*>[\s\S]{0,240}?£\s*([0-9]+(?:\.[0-9]{1,2})?)/gi
   );
@@ -99,7 +88,6 @@ export function parseThMenuHtml(html: string) {
   );
   for (const m of dataPrice) push(m[2], parsePrice(m[1]));
 
-  // £1.99 breakfast banner is a real national offer on the official menu page
   if (/£\s*1\.99\s*Breakfast/i.test(html) || /£1\.99 Breakfast/i.test(html)) {
     push('£1.99 Breakfast', 1.99, { description: 'Official Tim Hortons UK breakfast offer' });
   }
@@ -107,56 +95,43 @@ export function parseThMenuHtml(html: string) {
   return items;
 }
 
-export async function fetchTimHortonsStores(_env: LiveEnv, q: string) {
-  let stores: ReturnType<typeof parseThLocatorHtml> = [];
-  let source = 'th_locator';
-  try {
-    const res = await fetch(TH_LOCATOR, { headers: thHeaders() });
-    if (res.ok) stores = parseThLocatorHtml(await res.text());
-  } catch {
-    /* locator HTML may change */
+export async function fetchTimHortonsStores(_env: LiveEnv, q: string, coords?: StoreCoords) {
+  const result = await fetchJeBrandStores('tim_hortons', q, coords);
+  if (result.count === 0 && !q.trim() && !coords) {
+    throw new Error('Could not load Tim Hortons UK stores from Just Eat. Search by postcode (e.g. WA15).');
   }
-  if (stores.length === 0) {
-    source = 'th_empty';
-  }
-  if (q.trim()) {
-    const qq = q.replace(/\s+/g, '').toLowerCase();
-    stores = stores.filter((s) =>
-      [s.id, s.name, s.city, s.postcode, s.address]
-        .map((x) => String(x || '').toLowerCase().replace(/\s+/g, ''))
-        .join(' ')
-        .includes(qq)
-    );
-  }
-  return { stores, source, count: stores.length };
+  return result;
 }
 
-export function timHortonsMenuCatalogue(storeId: string, items: any[]) {
-  const usable = items.length >= 3 ? items : [];
+export function timHortonsMenuCatalogue(storeId: string, items: any[], source = 'th_menu_page') {
   return brandMenuShell({
     id: 'tim_hortons_uk',
     name: 'Tim Hortons UK',
     accentColor: '#c8102e',
     logoText: 'TH',
     disclaimer:
-      usable.length > 0
-        ? 'Tim Hortons UK prices are indicative and vary by store. Not official app checkout totals.'
-        : 'Tim Hortons UK lists products on the marketing menu but no per-item pickup prices. Stores still load; menu stays empty until a priced source is available.',
-    items: usable,
+      items.length > 0
+        ? 'Tim Hortons UK prices are from Just Eat restaurant menus and vary by store. Not official app checkout totals.'
+        : 'Tim Hortons UK menu had no priced items for this store. Pick the shop again or retry.',
+    items,
     extra: {
       menuVersion: `th-${storeId}`,
-      _source: { storeId, source: usable.length ? 'th_menu_page' : 'th_unpriced' },
+      _source: { storeId, source },
     },
   });
 }
 
 export async function fetchTimHortonsMenu(_env: LiveEnv, storeId: string) {
-  if (!storeId.trim()) throw new Error('Pass storeId from Tim Hortons locator (city-postcode slug)');
-  try {
-    const res = await fetch(TH_MENU, { headers: thHeaders() });
-    if (res.ok) return timHortonsMenuCatalogue(storeId, parseThMenuHtml(await res.text()));
-  } catch {
-    /* marketing page may be blocked */
+  const sid = storeId.trim();
+  if (!sid) throw new Error('Pass storeId (Just Eat uniqueName, e.g. tim-hortons-uk-trafford-centre-manchester)');
+  if (!isJeMenuSlug(sid)) {
+    throw new Error(
+      'This Tim Hortons shop id is from an older locator. Search by postcode and pick the store again.'
+    );
   }
-  return timHortonsMenuCatalogue(storeId, []);
+  const items = await fetchJeMenuItems(sid, 'th');
+  if (!items.length) {
+    throw new Error(`Just Eat menu had no priced items for ${sid}`);
+  }
+  return timHortonsMenuCatalogue(sid, items, 'just_eat');
 }

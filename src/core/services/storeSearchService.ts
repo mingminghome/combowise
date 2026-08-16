@@ -112,7 +112,7 @@ export class StoreSearchService {
     const existing = this.inflight.get(providerId);
     if (existing) return existing;
 
-    const run = this.fetchStores(providerId, options.forceRefresh === true);
+    const run = this.fetchStores(providerId, { forceRefresh: options.forceRefresh === true });
     this.inflight.set(providerId, run);
     try {
       return await run;
@@ -121,10 +121,43 @@ export class StoreSearchService {
     }
   }
 
-  private static async fetchStores(providerId: string, forceRefresh: boolean): Promise<StoreLocation[]> {
+  private static storesUrl(
+    endpoint: string,
+    extra?: { q?: string; lat?: number; lng?: number }
+  ): string {
+    const u = new URL(endpoint, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    if (extra?.q) u.searchParams.set('q', extra.q);
+    if (extra?.lat != null && extra?.lng != null && Number.isFinite(extra.lat) && Number.isFinite(extra.lng)) {
+      u.searchParams.set('lat', String(extra.lat));
+      u.searchParams.set('lng', String(extra.lng));
+    }
+    return `${u.pathname}${u.search}`;
+  }
+
+  private static mergeStores(providerId: string, incoming: StoreLocation[]): StoreLocation[] {
+    const existing = this.getStoresForProvider(providerId);
+    const byId = new Map<string, StoreLocation>();
+    for (const s of existing) byId.set(s.id, s);
+    for (const s of incoming) byId.set(s.id, s);
+    const merged = [...byId.values()];
+    this.saveStoresCache(providerId, merged);
+    return merged;
+  }
+
+  private static async fetchStores(
+    providerId: string,
+    options: {
+      forceRefresh?: boolean;
+      q?: string;
+      lat?: number;
+      lng?: number;
+      merge?: boolean;
+    } = {}
+  ): Promise<StoreLocation[]> {
     const cfg = this.configMap.get(providerId);
     const endpoint = cfg?.endpoint;
     const gen = this.loadGeneration.get(providerId) ?? 0;
+    const queried = Boolean(options.q || (options.lat != null && options.lng != null));
 
     if (!endpoint) {
       return this.getStoresForProvider(providerId);
@@ -134,10 +167,10 @@ export class StoreSearchService {
     const timer = window.setTimeout(() => controller.abort(), STORES_FETCH_TIMEOUT_MS);
 
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(this.storesUrl(endpoint, options), {
         method: 'GET',
         headers: { Accept: 'application/json' },
-        cache: forceRefresh ? 'no-store' : 'default',
+        cache: options.forceRefresh || queried ? 'no-store' : 'default',
         signal: controller.signal,
       });
 
@@ -162,7 +195,7 @@ export class StoreSearchService {
       const raw = await response.json();
       const stores = this.normalizeStoresPayload(raw);
       if (stores.length === 0) {
-        this.lastError.set(providerId, 'Store directory was empty');
+        if (!queried) this.lastError.set(providerId, 'Store directory was empty');
         return this.getStoresForProvider(providerId);
       }
 
@@ -171,6 +204,7 @@ export class StoreSearchService {
       }
 
       this.lastError.delete(providerId);
+      if (options.merge) return this.mergeStores(providerId, stores);
       this.saveStoresCache(providerId, stores);
       return stores;
     } catch (e) {
@@ -283,17 +317,25 @@ export class StoreSearchService {
     await this.ensureStoresLoaded(providerId);
     let stores = this.getStoresForProvider(providerId);
 
-    // First load failed or empty cache — force one network refresh
-    if (stores.length === 0) {
+    const rawQ = (query || '').trim();
+    const localHits = rawQ ? this.searchStoresLocal(rawQ, providerId) : stores;
+    const postal = rawQ ? PostcodeService.isPostalQuery(rawQ) : false;
+
+    // Postcode-based chains (McD / TH / BK via Just Eat) need ?q= — a hub
+    // seed will not include WA15. Also refetch when the local filter is empty.
+    if (rawQ && (postal || localHits.length === 0)) {
+      const remote = await this.fetchStores(providerId, { q: rawQ, merge: true });
+      if (remote.length) stores = remote;
+      else stores = this.getStoresForProvider(providerId);
+    }
+
+    if (stores.length === 0 && !rawQ) {
       await this.ensureStoresLoaded(providerId, { forceRefresh: true });
       stores = this.getStoresForProvider(providerId);
     }
 
-    if (!query || query.trim() === '') {
-      return stores;
-    }
+    if (!rawQ) return stores;
 
-    const rawQ = query.trim();
     const geoResult = await PostcodeService.lookupPostcode(rawQ);
     if (geoResult) {
       const storesWithDist = stores.map((s) => {
@@ -313,7 +355,16 @@ export class StoreSearchService {
       return storesWithDist;
     }
 
-    return this.searchStoresLocal(query, providerId);
+    return this.searchStoresLocal(rawQ, providerId);
+  }
+
+  static async searchStoresByCoordinatesAsync(
+    lat: number,
+    lon: number,
+    providerId: string
+  ): Promise<StoreLocation[]> {
+    await this.fetchStores(providerId, { lat, lng: lon, merge: true });
+    return this.searchStoresByCoordinates(lat, lon, providerId);
   }
 
   static searchStoresByCoordinates(lat: number, lon: number, providerId: string): StoreLocation[] {

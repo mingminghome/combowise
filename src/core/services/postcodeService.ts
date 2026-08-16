@@ -7,18 +7,35 @@ export interface UKPostcodeResult {
   adminCounty: string | null;
 }
 
+const FULL_POSTCODE = /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/;
+/** Outward code only — WA15, M1, SW1A */
+const OUTCODE = /^[A-Z]{1,2}\d[A-Z\d]?$/;
+
+function compactPostal(raw: string): string {
+  return raw.replace(/\s+/g, '').trim().toUpperCase();
+}
+
 export class PostcodeService {
+  /** Full postcode (WA15 7RF) or outcode (WA15, M1). */
+  static isPostalQuery(rawQuery: string): boolean {
+    const cleaned = compactPostal(rawQuery);
+    return FULL_POSTCODE.test(cleaned) || OUTCODE.test(cleaned);
+  }
+
   /**
-   * Resolve any UK postcode (e.g., WA157RF, WA15 7RF, M1 1WR, SW1A 1AA) via free UK Postcodes API
+   * Resolve a UK postcode or outcode (WA157RF, WA15 7RF, WA15, M1, SW1A 1AA).
    */
   static async lookupPostcode(rawQuery: string): Promise<UKPostcodeResult | null> {
-    const cleaned = rawQuery.replace(/\s+/g, '').trim().toUpperCase();
-    if (cleaned.length < 5 || cleaned.length > 8) {
-      return null;
-    }
+    const cleaned = compactPostal(rawQuery);
+    if (!cleaned || cleaned.length > 8) return null;
+
+    const isFull = FULL_POSTCODE.test(cleaned);
+    const isOut = OUTCODE.test(cleaned);
+    if (!isFull && !isOut) return null;
 
     try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(cleaned)}`, {
+      const path = isFull ? `postcodes/${cleaned}` : `outcodes/${cleaned}`;
+      const response = await fetch(`https://api.postcodes.io/${path}`, {
         method: 'GET',
         headers: { Accept: 'application/json' },
       });
@@ -27,13 +44,17 @@ export class PostcodeService {
 
       const data = await response.json();
       if (data && data.status === 200 && data.result) {
+        const r = data.result;
+        const district = Array.isArray(r.admin_district)
+          ? r.admin_district[0]
+          : r.admin_district || r.parish || 'UK District';
         return {
-          postcode: data.result.postcode,
-          latitude: data.result.latitude,
-          longitude: data.result.longitude,
-          district: data.result.admin_district || data.result.parish || 'UK District',
-          region: data.result.region || data.result.european_electoral_region || 'UK',
-          adminCounty: data.result.admin_county,
+          postcode: r.postcode || r.outcode || cleaned,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          district,
+          region: r.region || r.european_electoral_region || 'UK',
+          adminCounty: r.admin_county ?? null,
         };
       }
     } catch (e) {

@@ -32,6 +32,10 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
   const url = new URL(context.request.url);
   const storeId = url.searchParams.get('storeId') || '';
   const q = url.searchParams.get('q') || '';
+  const latN = Number(url.searchParams.get('lat') || '');
+  const lngN = Number(url.searchParams.get('lng') || '');
+  const coords =
+    Number.isFinite(latN) && Number.isFinite(lngN) ? { lat: latN, lng: lngN } : undefined;
 
   if (!provider || (resource !== 'menu' && resource !== 'stores')) {
     return json({ error: 'not_found', message: 'Use /api/live/:provider/{menu|stores}' }, 404);
@@ -86,32 +90,38 @@ export const onRequestGet: PagesFunction<LiveEnv> = async (context) => {
 
     if (provider === 'mcdonalds_uk' && resource === 'menu') {
       if (!storeId) {
-        return json({ error: 'store_required', message: 'Pass storeId=McDonald’s restaurant number' }, 400);
+        return json(
+          { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName (pick a store after searching by postcode)' },
+          400
+        );
       }
       return json(await fetchMcdonaldsMenu(context.env, storeId));
     }
     if (provider === 'mcdonalds_uk' && resource === 'stores') {
-      return json(await fetchMcdonaldsStores(context.env, q));
+      return json(await fetchMcdonaldsStores(context.env, q, coords));
     }
 
     if (provider === 'burger_king_uk' && resource === 'menu') {
       if (!storeId) {
-        return json({ error: 'store_required', message: 'Pass storeId=BK store number (e.g. 33001)' }, 400);
+        return json({ error: 'store_required', message: 'Pass storeId=BK store number or Just Eat uniqueName' }, 400);
       }
       return json(await fetchBurgerKingMenu(context.env, storeId));
     }
     if (provider === 'burger_king_uk' && resource === 'stores') {
-      return json(await fetchBurgerKingStores(context.env, q));
+      return json(await fetchBurgerKingStores(context.env, q, coords));
     }
 
     if (provider === 'tim_hortons_uk' && resource === 'menu') {
       if (!storeId) {
-        return json({ error: 'store_required', message: 'Pass storeId from Tim Hortons locator slug' }, 400);
+        return json(
+          { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName (pick a store after searching by postcode)' },
+          400
+        );
       }
       return json(await fetchTimHortonsMenu(context.env, storeId));
     }
     if (provider === 'tim_hortons_uk' && resource === 'stores') {
-      return json(await fetchTimHortonsStores(context.env, q));
+      return json(await fetchTimHortonsStores(context.env, q, coords));
     }
 
     return json(

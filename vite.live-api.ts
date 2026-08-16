@@ -49,6 +49,10 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
   const resource = parts[1] || '';
   const storeId = url.searchParams.get('storeId') || '';
   const q = url.searchParams.get('q') || '';
+  const latN = Number(url.searchParams.get('lat') || '');
+  const lngN = Number(url.searchParams.get('lng') || '');
+  const coords =
+    Number.isFinite(latN) && Number.isFinite(lngN) ? { lat: latN, lng: lngN } : undefined;
   const env = liveEnv();
 
   if (resource !== 'menu' && resource !== 'stores') {
@@ -84,39 +88,39 @@ async function handleLive(url: URL): Promise<{ status: number; body: unknown }> 
   }
 
   if (provider === 'mcdonalds_uk' && resource === 'stores') {
-    return { status: 200, body: await fetchMcdonaldsStores(env, q) };
+    return { status: 200, body: await fetchMcdonaldsStores(env, q, coords) };
   }
   if (provider === 'mcdonalds_uk' && resource === 'menu') {
     if (!storeId) {
       return {
         status: 400,
-        body: { error: 'store_required', message: 'Pass storeId=McDonald’s restaurant number' },
+        body: { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName' },
       };
     }
     return { status: 200, body: await fetchMcdonaldsMenu(env, storeId) };
   }
 
   if (provider === 'burger_king_uk' && resource === 'stores') {
-    return { status: 200, body: await fetchBurgerKingStores(env, q) };
+    return { status: 200, body: await fetchBurgerKingStores(env, q, coords) };
   }
   if (provider === 'burger_king_uk' && resource === 'menu') {
     if (!storeId) {
       return {
         status: 400,
-        body: { error: 'store_required', message: 'Pass storeId=BK store number (e.g. 33001)' },
+        body: { error: 'store_required', message: 'Pass storeId=BK store number or Just Eat uniqueName' },
       };
     }
     return { status: 200, body: await fetchBurgerKingMenu(env, storeId) };
   }
 
   if (provider === 'tim_hortons_uk' && resource === 'stores') {
-    return { status: 200, body: await fetchTimHortonsStores(env, q) };
+    return { status: 200, body: await fetchTimHortonsStores(env, q, coords) };
   }
   if (provider === 'tim_hortons_uk' && resource === 'menu') {
     if (!storeId) {
       return {
         status: 400,
-        body: { error: 'store_required', message: 'Pass storeId from Tim Hortons locator slug' },
+        body: { error: 'store_required', message: 'Pass storeId=Just Eat uniqueName' },
       };
     }
     return { status: 200, body: await fetchTimHortonsMenu(env, storeId) };

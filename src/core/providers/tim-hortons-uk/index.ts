@@ -24,7 +24,7 @@ const TH_UK_BRAND = createBrandShell({
     drink_reg: 'drink',
   },
   disclaimer:
-    'Tim Hortons UK prices are indicative. The official site does not always publish per-item pickup prices.',
+    'Tim Hortons UK prices are from Just Eat restaurant menus and vary by store. Not official app checkout totals.',
 });
 
 export class TimHortonsUkProvider extends BaseFastFoodProvider {

@@ -6,6 +6,13 @@ import { mapBkStore } from './burger-king-uk';
 import { mapMcdFeature, mapOsmMcd, mcdonaldsMenuCatalogue, normalizeMcdMenuItems } from './mcdonalds-uk';
 import { parseThLocatorHtml, parseThMenuHtml, timHortonsMenuCatalogue } from './tim-hortons-uk';
 import { extractGenericUnits, isComboName, penceToPounds } from './generic-fastfood';
+import {
+  filterJeRestaurants,
+  isJeMenuSlug,
+  isUkPostalQuery,
+  mapJeRestaurant,
+  normalizeJeMenuItems,
+} from './just-eat-uk';
 
 function assert(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(msg);
@@ -106,9 +113,74 @@ const mcdEmpty = mcdonaldsMenuCatalogue('8260427', [], 'mcd_unavailable');
 assert(mcdEmpty.id === 'mcdonalds_uk' && Array.isArray(mcdEmpty.items) && mcdEmpty.items.length === 0, 'McD empty catalogue');
 assert(!('error' in mcdEmpty), 'McD empty is not a structured error');
 
-const thEmpty = timHortonsMenuCatalogue('london-se1', parseThMenuHtml('<p>£1.99 Breakfast only</p>'));
-assert(thEmpty.items.length === 0, `TH banner-only is empty catalogue not 502, got ${thEmpty.items.length}`);
+const thEmpty = timHortonsMenuCatalogue('london-se1', []);
+assert(thEmpty.items.length === 0, `TH empty catalogue, got ${thEmpty.items.length}`);
 assert(!('error' in thEmpty), 'TH empty is not a structured error');
+
+assert(isUkPostalQuery('WA15') && isUkPostalQuery('WA15 7RF') && isUkPostalQuery('M1'), 'postal queries');
+assert(!isUkPostalQuery('Manchester') && !isUkPostalQuery(''), 'non-postal queries');
+assert(isJeMenuSlug('mcdonalds-baguely-2-manchester'), 'JE slug');
+assert(!isJeMenuSlug('8260427') && !isJeMenuSlug('33001'), 'official numeric ids are not JE slugs');
+
+const jeMcd = mapJeRestaurant(
+  {
+    id: '179442',
+    name: "McDonald's - Baguley McDelivery Kitchen",
+    uniqueName: 'mcdonalds-baguely-2-manchester',
+    address: {
+      city: 'Manchester',
+      firstLine: '1 Crew Road',
+      postalCode: 'M23 9BE',
+      location: { type: 'Point', coordinates: [-2.297525, 53.404628] },
+    },
+    driveDistanceMeters: 3525,
+  },
+  'mcdonalds'
+);
+assert(jeMcd && jeMcd.id === 'mcdonalds-baguely-2-manchester', `JE McD ${JSON.stringify(jeMcd)}`);
+assert(jeMcd.postcode === 'M23 9BE' && jeMcd.city === 'Manchester', 'JE McD address');
+assert(jeMcd.distanceMiles === 2.2, `JE miles ${jeMcd.distanceMiles}`);
+assert(mapJeRestaurant(jeMcd, 'tim_hortons') === null, 'brand filter rejects McD as TH');
+
+const jeFiltered = filterJeRestaurants(
+  [
+    { name: "McDonald's - A", uniqueName: 'mcdonalds-a' },
+    { name: 'Burger King - B', uniqueName: 'burger-king-b' },
+    { name: 'Tim Hortons - C', uniqueName: 'tim-hortons-uk-c' },
+  ],
+  'burger_king'
+);
+assert(jeFiltered.length === 1 && jeFiltered[0].id === 'burger-king-b', 'filter BK only');
+
+const jeItems = normalizeJeMenuItems(
+  {
+    Items: [
+      {
+        Id: 'aaa',
+        Name: 'Big Mac',
+        Type: 'menuitem',
+        Variations: [{ BasePrice: 4.79, DealOnly: false }],
+      },
+      {
+        Id: 'bbb',
+        Name: 'Deal-only box',
+        Type: 'menuitem',
+        Variations: [{ BasePrice: 9.99, DealOnly: true }],
+      },
+      {
+        Id: 'ccc',
+        Name: '20 Chicken McNuggets',
+        Type: 'menuitem',
+        Variations: [{ BasePrice: 6.49 }],
+      },
+      { Id: 'ddd', Name: 'Free sample', Type: 'menuitem', Variations: [{ BasePrice: 0 }] },
+    ],
+  },
+  'mcd'
+);
+assert(jeItems.length === 2, `JE items ${jeItems.length}`);
+assert(jeItems.find((i: { name: string }) => i.name === '20 Chicken McNuggets')?.atomicUnits?.nugget === 20, 'JE nugget units');
+assert(jeItems.every((i: { price: number }) => i.price > 0), 'JE priced only');
 
 const thPriced = timHortonsMenuCatalogue('x', [
   { id: 'a', name: 'Iced Capp', price: 2.49 },
@@ -124,4 +196,6 @@ console.log('new-chains.test.ts ok', {
   mcdItems: mcdItems.length,
   thStores: thStores.length,
   thMenu: thMenu.length,
+  jeMcd: jeMcd.id,
+  jeItems: jeItems.length,
 });
